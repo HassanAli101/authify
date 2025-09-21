@@ -3,6 +3,7 @@ package authify
 import (
 	"context"
 	"fmt"
+    "log"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -36,7 +37,7 @@ func NewAuthifyDB(connString string, tableName string) (*AuthifyDB, error) {
         return nil, fmt.Errorf("Unable to Create Table: %w", err)
     }
 
-    fmt.Println("Connection with database established")
+    log.Println("Connection with database established")
     return db, nil
 }
 
