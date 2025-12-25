@@ -5,106 +5,95 @@ import (
 	"os"
 	"strconv"
 	"time"
-	"errors"
 
+	"github.com/HassanAli101/authify"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	DatabaseURL           string
-	JWTAccessSecret             string
-	JWTRefreshSecret		string
-	TokenExpiration       time.Duration
-	ServerPort            string
-	TableName             string
+	DatabaseURL      string
+	JWTAccessSecret  string
+	JWTRefreshSecret string
+	TokenExpiration  time.Duration
+	ServerPort       string
+	TableName        string
 }
 
 // ReadEnvVars loads configuration values from a .env file or system environment variables.
-// It ensures required variables are present and valid, returning a Config struct with:
-//   - DatabaseURL (connection string to the database)
-//   - JWTAccessSecret (secret key used for signing JWT tokens)
-//  - JWTRefreshSecret (secret key used for signing refresh tokens)
-//   - TokenExpiration (duration in minutes for token validity)
-//   - ServerPort (port for running the HTTP server)
-//   - TableName (table name for storing users)
-// If any required variable is missing or invalid, it returns an error.
-// Documentation for godotenv: https://pkg.go.dev/github.com/joho/godotenv
 func ReadEnvVars() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
-    if os.Getenv("DATABASE_URL") == "" {
-        return nil, errors.New("No .env file found and DATABASE_URL is missing")
-    }
-}
+		if os.Getenv("DATABASE_URL") == "" {
+			return nil, authify.ErrEnvNotFound
+		}
+	}
 
 	cfg := &Config{}
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseURL == "" {
-		return nil, errors.New("DATABASE_URL is not set")
+		return nil, authify.ErrMissingDatabaseURL
 	}
 
 	cfg.JWTAccessSecret = os.Getenv("JWT_SECRET")
 	if cfg.JWTAccessSecret == "" {
-		return nil, errors.New("JWT_SECRET is not set")
+		return nil, authify.ErrMissingJWTSecret
 	}
 
 	cfg.JWTRefreshSecret = os.Getenv("JWT_REFRESH_SECRET")
 	if cfg.JWTRefreshSecret == "" {
-		return nil, errors.New("JWT_REFRESH_SECRET is not set")
+		return nil, authify.ErrMissingJWTRefreshSecret
 	}
 
 	expStr := os.Getenv("TOKEN_EXPIRATION_TIME_MINUTES")
 	if expStr == "" {
-		return nil, errors.New("TOKEN_EXPIRATION_TIME_MINUTES is not set")
+		return nil, authify.ErrMissingTokenExpiration
 	}
+
 	expMinutes, err := strconv.Atoi(expStr)
 	if err != nil {
-		return nil, errors.New("invalid TOKEN_EXPIRATION_TIME_MINUTES: " + err.Error())
+		return nil, authify.ErrInvalidTokenExpiration
 	}
 	cfg.TokenExpiration = time.Duration(expMinutes) * time.Minute
 
 	cfg.ServerPort = os.Getenv("SERVER_PORT")
 	if cfg.ServerPort == "" {
-		return nil, errors.New("SERVER_PORT is not set")
+		return nil, authify.ErrMissingServerPort
 	}
 
 	cfg.TableName = os.Getenv("TABLE_NAME")
 	if cfg.TableName == "" {
-		return nil, errors.New("TABLE_NAME is not set")
+		return nil, authify.ErrMissingTableName
 	}
 
 	return cfg, nil
 }
 
-// ParseUsernamePassword extracts the username and password from HTTP request headers.
-// It expects the following headers:
-//   - "authify-username": the username of the user
-//   - "authify-password": the password of the user
-// If either header is missing, it returns an error indicating which one is missing.
+// ParseUsernamePassword extracts username and password from HTTP headers.
 func ParseUsernamePassword(r *http.Request) (string, string, error) {
 	username := r.Header.Get("authify-username")
 	password := r.Header.Get("authify-password")
+
 	if username == "" {
-		return "", "", errors.New("username is missing in the request, please have a look at docs")
+		return "", "", authify.ErrMissingUsernameHeader
 	}
 	if password == "" {
-		return "", "", errors.New("password is missing in the request, please have a look at docs")
+		return "", "", authify.ErrMissingPasswordHeader
 	}
+
 	return username, password, nil
 }
 
-// ParseToken extracts the JWT token from the HTTP request header.
-// It expects the header:
-//   - "authify-token": containing the JWT token string
-// If the header is missing, it returns an error indicating the token is required.
+// ParseToken extracts access and refresh tokens from HTTP headers.
 func ParseToken(r *http.Request) (string, string, error) {
 	accessToken := r.Header.Get("authify-access")
 	refreshToken := r.Header.Get("authify-refresh")
+
 	if accessToken == "" {
-		return "", "", errors.New("access token is missing in the request, please have a look at docs")
+		return "", "", authify.ErrMissingAccessTokenHeader
 	}
 	if refreshToken == "" {
-		return "", "", errors.New("refresh token is missing in the request, please have a look at docs")
+		return "", "", authify.ErrMissingRefreshTokenHeader
 	}
+
 	return accessToken, refreshToken, nil
 }
