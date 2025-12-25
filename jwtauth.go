@@ -17,9 +17,6 @@ type JWTManager struct {
 	store            Store
 }
 
-// This is for exporting and using the specific token expired message from the authify package.
-var ErrTokenExpired = jwt.ErrTokenExpired
-
 // NewJWTManager initializes a JWTManager with the given secret key, token expiry duration,
 // and database reference for user validation.
 func NewJWTManager(accessTokenSecretKey string, refreshTokenSecretKey string, duration time.Duration, store Store) *JWTManager {
@@ -52,6 +49,9 @@ func (m *JWTManager) GenerateToken(username string, password string) (string, er
 	return token.SignedString([]byte(m.accessTokenSecretKey))
 }
 
+// GenerateRefreshToken just generates a refresh token including user name, ipaddress
+// issued at time, expire time, absolute expire time, and whether the token is valid or not
+// uses the passed refreshTokenSecretKey
 func (m *JWTManager) GenerateRefreshToken(username string, ipAddress string) (string, error) {
 	claims := jwt.MapClaims {
 		"uName": username,
@@ -67,7 +67,7 @@ func (m *JWTManager) GenerateRefreshToken(username string, ipAddress string) (st
 
 // VerifyToken parses and validates a JWT string. 
 // Returns username, role, and an error if the token is invalid or expired.
-// If the token is expired, it returns jwt.ErrTokenExpired specifically to allow seamless refresh handling.
+// If the token is expired, it returns ErrTokenExpired specifically to allow seamless refresh handling.
 func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, string, error) {
 	secretKey := m.accessTokenSecretKey
 	if isRefresh {
@@ -75,32 +75,31 @@ func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, strin
 	}
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
+			return nil, ErrUnexpectedSigningMethod
 		}
 		return []byte(secretKey), nil
 	})
-	// TODO: replace these with custom exceptions.
 	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			return "", "",  jwt.ErrTokenExpired
+		if errors.Is(err, ErrTokenExpired) {
+			return "", "",  ErrTokenExpired
 		}
-		return "", "", errors.New("invalid token")
+		return "", "", ErrInvalidToken
 	}
 
 	if !token.Valid {
-		return "", "", errors.New("invalid token")
+		return "", "", ErrInvalidToken
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", "", errors.New("invalid claims")
+		return "", "", ErrClaimsInvalid
 	}
 
 
 	if expVal, ok := claims["exp"].(float64); ok {
 		expTime := time.Unix(int64(expVal), 0)
 		if time.Now().After(expTime) {
-			return "", "",  jwt.ErrTokenExpired
+			return "", "",  ErrTokenExpired
 		}
 	}
 
@@ -108,11 +107,11 @@ func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, strin
 	if !isRefresh {
 		username, ok := claims["username"].(string)
 		if !ok {
-			return "", "", errors.New("username missing in token")
+			return "", "", ErrMissingUsername
 		}
 		role, ok := claims["role"].(string)
 		if !ok {
-			return "", "", errors.New("role missing in token")
+			return "", "", ErrMissingRole
 		}
 		return username, role, nil
 	}
@@ -120,12 +119,12 @@ func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, strin
 	if isRefresh {
 		valid, ok := claims["valid"].(string)
 		if !ok || valid != "True" {
-			return "", "", errors.New("refresh token invalidated")
+			return "", "", ErrInvalidToken
 		}
 
 		username, ok := claims["uName"].(string)
 		if !ok {
-			return "", "", errors.New("username missing in token")
+			return "", "", ErrMissingUsername
 		}
 		return username, "", nil
 	}
@@ -133,21 +132,20 @@ func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, strin
 }
 
 // RefreshToken attempts to issue a new token using an existing one.
-// If VerifyToken returns  jwt.ErrTokenExpired, the claims are reused to generate
+// If VerifyToken returns  ErrTokenExpired, the claims are reused to generate
 // a fresh token with a new expiry. If the token is still valid, a new one 
 // is issued regardless (ensuring clients always get a fresh token).
 func (m *JWTManager) RefreshToken(accessToken string, refreshToken string) (string, string, error) {
 	username, _, err := m.VerifyToken(refreshToken, true)
 	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			// TODO: replace the error messages with custom exported exceptions others can use
-			return "", "", errors.New("Refresh token is expired, can not do refresh. Please log in again.")
+		if errors.Is(err, ErrTokenExpired) {
+			return "", "", ErrRefreshTokenExpired
 		}
 		return "", "", err
 	}
 	username, role, err := m.VerifyToken(accessToken, false)
 	if err != nil {
-		if errors.Is(err,  jwt.ErrTokenExpired) {
+		if errors.Is(err,  ErrTokenExpired) {
             token, _, err := new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{})
             if err != nil {
                 return "", "", err

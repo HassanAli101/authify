@@ -1,7 +1,6 @@
 package authify
 
 import (
-    "errors"
     "sync"
 
     "golang.org/x/crypto/bcrypt"
@@ -33,7 +32,7 @@ func (m *InMemoryUserStore) CreateUser(username, password string) error {
     defer m.mu.Unlock()
 
     if _, exists := m.users[username]; exists {
-        return errors.New("user already exists")
+        return ErrUserExists
     }
 
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -59,12 +58,12 @@ func (m *InMemoryUserStore) GetUserRole(username string, password string) (strin
 
     user, exists := m.users[username]
     if !exists {
-        return "", errors.New("user not found")
+        return "", ErrUserNotFound
     }
 
     err := bcrypt.CompareHashAndPassword([]byte(user.hashedPassword), []byte(password))
     if err != nil {
-        return "", errors.New("invalid password for user: " + username)
+        return "", ErrInvalidPassword
     }
 
     return user.role, nil
