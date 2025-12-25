@@ -39,7 +39,10 @@ func init() {
 		return
 	}
 
-    jwtManager := authify.NewJWTManager(cfg.JWTAccessSecret, cfg.JWTRefreshSecret, cfg.TokenExpiration, dbStore)
+    jwtManager, err := authify.NewJWTManager().WithAccessSecret(cfg.JWTAccessSecret).WithRefreshSecret(cfg.JWTRefreshSecret).WithTokenDuration(cfg.TokenExpiration).WithStore(dbStore).Build()
+	if err != nil {
+		log.Fatalf("Error creating a jwt manager instance %v\n", err)
+	}
 	a = authify.NewAuthify(dbStore, jwtManager)
 }
 

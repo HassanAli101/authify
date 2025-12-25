@@ -18,14 +18,45 @@ type JWTManager struct {
 }
 
 // NewJWTManager initializes a JWTManager with the given secret key, token expiry duration,
-// and database reference for user validation.
-func NewJWTManager(accessTokenSecretKey string, refreshTokenSecretKey string, duration time.Duration, store Store) *JWTManager {
+// and database store reference for user validation.
+// all of these follow the builder pattern while making the jwt manager.
+func NewJWTManager() *JWTManager {
 	return &JWTManager{
-		accessTokenSecretKey:     accessTokenSecretKey,
-		refreshTokenSecretKey: refreshTokenSecretKey,
-		tokenDuration: duration,
-		store:            store,
+		tokenDuration: defaultAccessTokenDuration,
 	}
+}
+
+func (m *JWTManager) WithAccessSecret(secret string) *JWTManager {
+	m.accessTokenSecretKey = secret
+	return m
+}
+
+func (m *JWTManager) WithRefreshSecret(secret string) *JWTManager {
+	m.refreshTokenSecretKey = secret
+	return m
+}
+
+func (m *JWTManager) WithTokenDuration(d time.Duration) *JWTManager {
+	m.tokenDuration = d
+	return m
+}
+
+func (m *JWTManager) WithStore(store Store) *JWTManager {
+	m.store = store
+	return m
+}
+
+func (m *JWTManager) Build() (*JWTManager, error) {
+	if m.accessTokenSecretKey == "" {
+		return nil, ErrAccessTokenSecretNotProvided
+	}
+	if m.refreshTokenSecretKey == "" {
+		return nil, ErrRefreshTokenSecretNotProvided
+	}
+	if m.store == nil {
+		return nil, ErrStoreNotProvided
+	}
+	return m, nil
 }
 
 // GenerateToken validates username/password using the database,
