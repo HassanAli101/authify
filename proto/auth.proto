@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package authify;
+
+// the path in this go_package decides where the grpc files will be created 
+// when running protoc command.
+option go_package = "/internal/grpc;authifygrpc";
+
+service AuthService {
+    rpc CreateUser(CreateUserRequest) returns (Empty);
+    rpc GenerateToken(GenerateTokenRequest) returns (TokenResponse);
+    rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+    rpc RefreshToken(RefreshTokenRequest) returns (TokenResponse);
+}
+
+message CreateUserRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message GenerateTokenRequest {
+    string username = 1;
+    string password = 2;
+    string device = 3;
+}
+
+message VerifyTokenRequest {
+    string access_token = 1;
+}
+
+message RefreshTokenRequest {
+    string access_token = 1;
+    string refresh_token = 2;
+}
+
+message TokenResponse {
+    string access_token = 1;
+    string refresh_token = 2;
+}
+
+message VerifyTokenResponse {
+    string username = 1;
+    string role = 2;
+}
+
+message Empty {}
