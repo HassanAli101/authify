@@ -12,8 +12,9 @@ type Store interface {
 
 type TokenManager interface {
     GenerateToken(username string, password string) (string, error)
-    VerifyToken(tokenStr string) (string, string, error)
-    RefreshToken(tokenStr string) (string, error)
+    VerifyToken(tokenStr string, isRefresh bool) (string, string, error)
+    RefreshToken(accessToken string, refreshToken string) (string, string, error)
+    GenerateRefreshToken(username string, ipAddress string) (string, error) 
 }
 
 func NewAuthify(store Store, tokens TokenManager) *Authify {

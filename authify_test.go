@@ -7,7 +7,7 @@ import (
 
 func setupAuthify() *Authify {
 	memStore := NewInMemoryUserStore()
-	jwtManager := NewJWTManager("supersecret", time.Minute*1, memStore)
+	jwtManager := NewJWTManager("supersecret", "supersecret2", time.Minute*1, memStore)
 	a := NewAuthify(memStore, jwtManager)
 
 	_ = a.Store.CreateUser("alice", "password123")
@@ -39,7 +39,7 @@ func TestVerifyToken(t *testing.T) {
 	a := setupAuthify()
 
 	tokenStr, _ := a.Tokens.GenerateToken("alice", "password123")
-	username, role, err := a.Tokens.VerifyToken(tokenStr)
+	username, role, err := a.Tokens.VerifyToken(tokenStr, false)
 	if err != nil {
 		t.Fatalf("failed to verify token: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestTamperedToken(t *testing.T) {
 	tokenStr, _ := a.Tokens.GenerateToken("alice", "password123")
 	tampered := tokenStr + "extra"
 
-	_, _, err := a.Tokens.VerifyToken(tampered)
+	_, _, err := a.Tokens.VerifyToken(tampered, false)
 	if err == nil {
 		t.Errorf("expected error for tampered token, got nil")
 	}
@@ -67,7 +67,8 @@ func TestRefreshToken(t *testing.T) {
 	a := setupAuthify()
 
 	tokenStr, _ := a.Tokens.GenerateToken("alice", "password123")
-	newToken, err := a.Tokens.RefreshToken(tokenStr)
+	refreshToken, _ := a.Tokens.GenerateRefreshToken("alice", "12345")
+	newToken, _, err := a.Tokens.RefreshToken(tokenStr, refreshToken)
 	if err != nil {
 		t.Fatalf("failed to refresh token: %v", err)
 	}
@@ -78,7 +79,7 @@ func TestRefreshToken(t *testing.T) {
 
 func TestExpiredToken(t *testing.T) {
 	memStore := NewInMemoryUserStore()
-	shortLivedJWT := NewJWTManager("supersecret", time.Millisecond*10, memStore)
+	shortLivedJWT := NewJWTManager("supersecret", "supersecret2", time.Millisecond*10, memStore)
 	a := NewAuthify(memStore, shortLivedJWT)
 	_ = a.Store.CreateUser("alice", "password123")
 
@@ -89,7 +90,7 @@ func TestExpiredToken(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 20)
 
-	_, _, err = a.Tokens.VerifyToken(tokenStr)
+	_, _, err = a.Tokens.VerifyToken(tokenStr, false)
 	if err == nil {
 		t.Errorf("expected error verifying expired token, got nil")
 	}
@@ -97,7 +98,7 @@ func TestExpiredToken(t *testing.T) {
 
 func TestAutoRefreshExpiredToken(t *testing.T) {
 	memStore := NewInMemoryUserStore()
-	shortLivedJWT := NewJWTManager("supersecret", time.Second*1, memStore)
+	shortLivedJWT := NewJWTManager("supersecret", "supersecret2", time.Second*1, memStore)
 	a := NewAuthify(memStore, shortLivedJWT)
 	_ = a.Store.CreateUser("alice", "password123")
 
@@ -105,15 +106,16 @@ func TestAutoRefreshExpiredToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate short-lived token: %v", err)
 	}
+	refreshToken, _ := a.Tokens.GenerateRefreshToken("alice", "12345")
 
 	time.Sleep(time.Second * 1)
 
-	tokenStr, err = a.Tokens.RefreshToken(tokenStr)
+	tokenStr, _, err = a.Tokens.RefreshToken(tokenStr, refreshToken)
 	if err != nil {
 		t.Fatalf("Failed to refresh expired token: %v\n", err)
 	}
 
-	username, role, err := a.Tokens.VerifyToken(tokenStr)
+	username, role, err := a.Tokens.VerifyToken(tokenStr, false)
 	if err != nil {
 		t.Fatalf("failed to verify token: %v", err)
 	}

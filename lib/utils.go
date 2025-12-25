@@ -12,7 +12,8 @@ import (
 
 type Config struct {
 	DatabaseURL           string
-	JWTSecret             string
+	JWTAccessSecret             string
+	JWTRefreshSecret		string
 	TokenExpiration       time.Duration
 	ServerPort            string
 	TableName             string
@@ -21,7 +22,8 @@ type Config struct {
 // ReadEnvVars loads configuration values from a .env file or system environment variables.
 // It ensures required variables are present and valid, returning a Config struct with:
 //   - DatabaseURL (connection string to the database)
-//   - JWTSecret (secret key used for signing JWT tokens)
+//   - JWTAccessSecret (secret key used for signing JWT tokens)
+//  - JWTRefreshSecret (secret key used for signing refresh tokens)
 //   - TokenExpiration (duration in minutes for token validity)
 //   - ServerPort (port for running the HTTP server)
 //   - TableName (table name for storing users)
@@ -41,9 +43,14 @@ func ReadEnvVars() (*Config, error) {
 		return nil, errors.New("DATABASE_URL is not set")
 	}
 
-	cfg.JWTSecret = os.Getenv("JWT_SECRET")
-	if cfg.JWTSecret == "" {
+	cfg.JWTAccessSecret = os.Getenv("JWT_SECRET")
+	if cfg.JWTAccessSecret == "" {
 		return nil, errors.New("JWT_SECRET is not set")
+	}
+
+	cfg.JWTRefreshSecret = os.Getenv("JWT_REFRESH_SECRET")
+	if cfg.JWTRefreshSecret == "" {
+		return nil, errors.New("JWT_REFRESH_SECRET is not set")
 	}
 
 	expStr := os.Getenv("TOKEN_EXPIRATION_TIME_MINUTES")
@@ -90,10 +97,14 @@ func ParseUsernamePassword(r *http.Request) (string, string, error) {
 // It expects the header:
 //   - "authify-token": containing the JWT token string
 // If the header is missing, it returns an error indicating the token is required.
-func ParseToken(r *http.Request) (string, error) {
-	token := r.Header.Get("authify-token")
-	if token == "" {
-		return "", errors.New("token is missing in the request, please have a look at docs")
+func ParseToken(r *http.Request) (string, string, error) {
+	accessToken := r.Header.Get("authify-access")
+	refreshToken := r.Header.Get("authify-refresh")
+	if accessToken == "" {
+		return "", "", errors.New("access token is missing in the request, please have a look at docs")
 	}
-	return token, nil
+	if refreshToken == "" {
+		return "", "", errors.New("refresh token is missing in the request, please have a look at docs")
+	}
+	return accessToken, refreshToken, nil
 }

@@ -39,7 +39,7 @@ func init() {
 		return
 	}
 
-    jwtManager := authify.NewJWTManager(cfg.JWTSecret, cfg.TokenExpiration, dbStore)
+    jwtManager := authify.NewJWTManager(cfg.JWTAccessSecret, cfg.JWTRefreshSecret, cfg.TokenExpiration, dbStore)
 	a = authify.NewAuthify(dbStore, jwtManager)
 }
 
@@ -84,17 +84,19 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 // and responds with the token or an error. Logs the username when
 // a token is successfully generated.
 func handleGenerateToken(w http.ResponseWriter, r *http.Request) {
+	ipAddress := r.RemoteAddr
 	username, password, err := lib.ParseUsernamePassword(r)
 	if err != nil {
 		fmt.Fprint(w, fmt.Sprintf("Error occured while generating token: %v\n", err))
 		return
-	}
-	token, err := a.Tokens.GenerateToken(username, password)
+	} 
+	accessToken, err := a.Tokens.GenerateToken(username, password)
+	refreshToken, err := a.Tokens.GenerateRefreshToken(username, ipAddress)
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("Error occured while generating token: %v\n", err))
 		return
 	} 
-	fmt.Fprint(w, fmt.Sprintf("Token: %v\n", token))
+	fmt.Fprint(w, fmt.Sprintf("Access Token: %v\nRefresh Token: %v\n", accessToken, refreshToken))
 	log.Printf("Generated token for user with username: %v\n", username)
 }
 
@@ -103,12 +105,12 @@ func handleGenerateToken(w http.ResponseWriter, r *http.Request) {
 // and responds with the associated username and role if the token
 // is valid. Logs the username when the token is successfully verified.
 func handleVerifyToken(w http.ResponseWriter, r *http.Request) {
-	token, err := lib.ParseToken(r)
+	accessToken, _, err := lib.ParseToken(r)
 	if err != nil {
 		fmt.Fprint(w, fmt.Sprintf("Error occured while verifying token: %v\n", err))
 		return
 	}
-	username, role, err := a.Tokens.VerifyToken(token)
+	username, role, err := a.Tokens.VerifyToken(accessToken, false)
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("Error occured while validating token: %v\n", err))
 		return
@@ -122,17 +124,16 @@ func handleVerifyToken(w http.ResponseWriter, r *http.Request) {
 // and responds with the new token if successful. Logs the username when
 // a token is refreshed.
 func handleRefreshToken(w http.ResponseWriter, r *http.Request) {
-	token, err := lib.ParseToken(r)
+	accessToken, refreshToken, err := lib.ParseToken(r)
 	if err != nil {
 		fmt.Fprint(w, fmt.Sprintf("Error occured while refreshing token: %v\n", err))
 		return
 	}
-	newToken, err := a.Tokens.RefreshToken(token)
+	newToken, username, err := a.Tokens.RefreshToken(accessToken, refreshToken)
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("Error occured while validating token: %v\n", err))
 		return
 	}
-	username, _, _ := a.Tokens.VerifyToken(token)
 	fmt.Fprint(w, fmt.Sprintf("Token Refreshed! new token is: %v\n", newToken))
 	log.Printf("Refreshed token for user with username: %v\n", username)
 }
