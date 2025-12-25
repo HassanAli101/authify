@@ -8,20 +8,20 @@ import (
 
 var (
 	// JWT-related errors
-	ErrTokenExpired              = jwt.ErrTokenExpired
-	ErrUnexpectedSigningMethod   = errors.New("unexpected signing method")
-	ErrInvalidToken              = errors.New("token is invalid")
-	ErrClaimsInvalid             = errors.New("invalid claims")
-	ErrMissingUsername           = errors.New("username missing in token")
-	ErrMissingRole               = errors.New("role missing in token")
-	ErrRefreshTokenExpired       = errors.New("refresh token is expired, cannot do refresh, please log in again")
-	ErrAccessTokenSecretNotProvided = errors.New("access token secret not provided")
+	ErrTokenExpired                  = jwt.ErrTokenExpired
+	ErrUnexpectedSigningMethod       = errors.New("unexpected signing method")
+	ErrInvalidToken                  = errors.New("token is invalid")
+	ErrClaimsInvalid                 = errors.New("invalid claims")
+	ErrMissingUsername               = errors.New("username missing in token")
+	ErrMissingRole                   = errors.New("role missing in token")
+	ErrRefreshTokenExpired           = errors.New("refresh token is expired, cannot do refresh, please log in again")
+	ErrAccessTokenSecretNotProvided  = errors.New("access token secret not provided")
 	ErrRefreshTokenSecretNotProvided = errors.New("refresh token secret not provided")
 
 	// User-related errors
-	ErrUserExists        = errors.New("user already exists")
-	ErrUserNotFound      = errors.New("user not found")
-	ErrInvalidPassword   = errors.New("invalid password for user")
+	ErrUserExists      = errors.New("user already exists")
+	ErrUserNotFound    = errors.New("user not found")
+	ErrInvalidPassword = errors.New("invalid password for user")
 
 	// Config / request errors
 	ErrMissingDatabaseURL        = errors.New("DATABASE_URL is not set")
@@ -38,5 +38,5 @@ var (
 	ErrEnvNotFound               = errors.New("no .env file found and DATABASE_URL is missing")
 
 	// store errors
-	ErrStoreNotProvided =  errors.New("store must be provided")
+	ErrStoreNotProvided = errors.New("store must be provided")
 )

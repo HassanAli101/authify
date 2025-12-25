@@ -11,10 +11,10 @@ import (
 // JWTManager is responsible for creating, verifying, and refreshing JWT tokens.
 // It stores a secret key, token duration, and store interface.
 type JWTManager struct {
-	accessTokenSecretKey     string
+	accessTokenSecretKey  string
 	refreshTokenSecretKey string
-	tokenDuration time.Duration
-	store            Store
+	tokenDuration         time.Duration
+	store                 Store
 }
 
 // NewJWTManager initializes a JWTManager with the given secret key, token expiry duration,
@@ -84,19 +84,19 @@ func (m *JWTManager) GenerateToken(username string, password string) (string, er
 // issued at time, expire time, absolute expire time, and whether the token is valid or not
 // uses the passed refreshTokenSecretKey
 func (m *JWTManager) GenerateRefreshToken(username string, ipAddress string) (string, error) {
-	claims := jwt.MapClaims {
-		"uName": username,
+	claims := jwt.MapClaims{
+		"uName":  username,
 		"IpAddr": ipAddress,
-		"iat": time.Now().Unix(),
-		"exp": time.Now().AddDate(0,0,3).Unix(),
-		"aExp": time.Now().AddDate(0,0,15).Unix(),
-		"valid": "True",
+		"iat":    time.Now().Unix(),
+		"exp":    time.Now().AddDate(0, 0, 3).Unix(),
+		"aExp":   time.Now().AddDate(0, 0, 15).Unix(),
+		"valid":  "True",
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(m.refreshTokenSecretKey))
 }
 
-// VerifyToken parses and validates a JWT string. 
+// VerifyToken parses and validates a JWT string.
 // Returns username, role, and an error if the token is invalid or expired.
 // If the token is expired, it returns ErrTokenExpired specifically to allow seamless refresh handling.
 func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, string, error) {
@@ -112,7 +112,7 @@ func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, strin
 	})
 	if err != nil {
 		if errors.Is(err, ErrTokenExpired) {
-			return "", "",  ErrTokenExpired
+			return "", "", ErrTokenExpired
 		}
 		return "", "", ErrInvalidToken
 	}
@@ -126,14 +126,12 @@ func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, strin
 		return "", "", ErrClaimsInvalid
 	}
 
-
 	if expVal, ok := claims["exp"].(float64); ok {
 		expTime := time.Unix(int64(expVal), 0)
 		if time.Now().After(expTime) {
-			return "", "",  ErrTokenExpired
+			return "", "", ErrTokenExpired
 		}
 	}
-
 
 	if !isRefresh {
 		username, ok := claims["username"].(string)
@@ -164,7 +162,7 @@ func (m *JWTManager) VerifyToken(tokenStr string, isRefresh bool) (string, strin
 
 // RefreshToken attempts to issue a new token using an existing one.
 // If VerifyToken returns  ErrTokenExpired, the claims are reused to generate
-// a fresh token with a new expiry. If the token is still valid, a new one 
+// a fresh token with a new expiry. If the token is still valid, a new one
 // is issued regardless (ensuring clients always get a fresh token).
 func (m *JWTManager) RefreshToken(accessToken string, refreshToken string) (string, string, error) {
 	username, _, err := m.VerifyToken(refreshToken, true)
@@ -176,37 +174,37 @@ func (m *JWTManager) RefreshToken(accessToken string, refreshToken string) (stri
 	}
 	username, role, err := m.VerifyToken(accessToken, false)
 	if err != nil {
-		if errors.Is(err,  ErrTokenExpired) {
-            token, _, err := new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{})
-            if err != nil {
-                return "", "", err
-            }
-            claims := token.Claims.(jwt.MapClaims)
-            username = claims["username"].(string)
-            role, _ = claims["role"].(string)
+		if errors.Is(err, ErrTokenExpired) {
+			token, _, err := new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{})
+			if err != nil {
+				return "", "", err
+			}
+			claims := token.Claims.(jwt.MapClaims)
+			username = claims["username"].(string)
+			role, _ = claims["role"].(string)
 
-            newClaims := jwt.MapClaims{
-                "username": username,
-                "role":     role,
-                "exp":      time.Now().Add(m.tokenDuration).Unix(),
+			newClaims := jwt.MapClaims{
+				"username":     username,
+				"role":         role,
+				"exp":          time.Now().Add(m.tokenDuration).Unix(),
 				"refreshed_at": time.Now().UnixNano(),
-            }
-            newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
+			}
+			newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
 			newSignedToken, err := newToken.SignedString([]byte(m.accessTokenSecretKey))
-            return newSignedToken, username, err
-        }
+			return newSignedToken, username, err
+		}
 		fmt.Printf("error in verify token: %v\n", err)
 		return "", "", err
 	}
 
 	claims := jwt.MapClaims{
-		"username": username,
-		"role":     role,
-		"exp":      time.Now().Add(m.tokenDuration).Unix(),
+		"username":     username,
+		"role":         role,
+		"exp":          time.Now().Add(m.tokenDuration).Unix(),
 		"refreshed_at": time.Now().UnixNano(),
 	}
 
 	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	newSignedToken, err := newToken.SignedString([]byte(m.accessTokenSecretKey))
-    return newSignedToken, username, err
+	return newSignedToken, username, err
 }

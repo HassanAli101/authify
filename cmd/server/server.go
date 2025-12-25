@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	a *authify.Authify
+	a   *authify.Authify
 	cfg *lib.Config
 )
 
@@ -27,19 +27,24 @@ var (
 // If any step fails, the application logs the error and exits.
 func init() {
 	var err error
-    cfg, err = lib.ReadEnvVars()
+	cfg, err = lib.ReadEnvVars()
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 		return
 	}
 
-    dbStore, err := authify.NewAuthifyDB(cfg.DatabaseURL, cfg.TableName)
+	dbStore, err := authify.NewAuthifyDB(cfg.DatabaseURL, cfg.TableName)
 	if err != nil {
 		log.Fatalf("Error connecting to db %v\n", err)
 		return
 	}
 
-    jwtManager, err := authify.NewJWTManager().WithAccessSecret(cfg.JWTAccessSecret).WithRefreshSecret(cfg.JWTRefreshSecret).WithTokenDuration(cfg.TokenExpiration).WithStore(dbStore).Build()
+	jwtManager, err := authify.NewJWTManager().
+		WithAccessSecret(cfg.JWTAccessSecret).
+		WithRefreshSecret(cfg.JWTRefreshSecret).
+		WithTokenDuration(cfg.TokenExpiration).
+		WithStore(dbStore).
+		Build()
 	if err != nil {
 		log.Fatalf("Error creating a jwt manager instance %v\n", err)
 	}
@@ -72,7 +77,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, fmt.Sprintf("Error occured while creating user: %v\n", err))
 		return
 	}
-	err = a.Store.CreateUser(username,password)
+	err = a.Store.CreateUser(username, password)
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("Error occured while creating user: %v\n", err))
 		return
@@ -92,13 +97,13 @@ func handleGenerateToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Fprint(w, fmt.Sprintf("Error occured while generating token: %v\n", err))
 		return
-	} 
+	}
 	accessToken, err := a.Tokens.GenerateToken(username, password)
 	refreshToken, err := a.Tokens.GenerateRefreshToken(username, ipAddress)
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("Error occured while generating token: %v\n", err))
 		return
-	} 
+	}
 	fmt.Fprint(w, fmt.Sprintf("Access Token: %v\nRefresh Token: %v\n", accessToken, refreshToken))
 	log.Printf("Generated token for user with username: %v\n", username)
 }
@@ -117,7 +122,7 @@ func handleVerifyToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("Error occured while validating token: %v\n", err))
 		return
-	} 
+	}
 	fmt.Fprint(w, fmt.Sprintf("Token validated with user %v and their role: %v\n", username, role))
 	log.Printf("Verified token for user with username: %v\n", username)
 }

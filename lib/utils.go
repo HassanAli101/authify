@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/HassanAli101/authify"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {

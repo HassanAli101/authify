@@ -8,11 +8,11 @@ import (
 func setupAuthify() *Authify {
 	memStore := NewInMemoryUserStore()
 	jwtManager, _ := NewJWTManager().
-	WithAccessSecret("supersecret").
-	WithRefreshSecret("supersecret2").
-	WithTokenDuration(time.Minute*1).
-	WithStore(memStore).
-	Build()
+		WithAccessSecret("supersecret").
+		WithRefreshSecret("supersecret2").
+		WithTokenDuration(time.Minute * 1).
+		WithStore(memStore).
+		Build()
 	a := NewAuthify(memStore, jwtManager)
 
 	_ = a.Store.CreateUser("alice", "password123")
@@ -85,11 +85,11 @@ func TestRefreshToken(t *testing.T) {
 func TestExpiredToken(t *testing.T) {
 	memStore := NewInMemoryUserStore()
 	shortLivedJWT, _ := NewJWTManager().
-	WithAccessSecret("supersecret").
-	WithRefreshSecret("supersecret2").
-	WithTokenDuration(time.Millisecond*10).
-	WithStore(memStore).
-	Build()
+		WithAccessSecret("supersecret").
+		WithRefreshSecret("supersecret2").
+		WithTokenDuration(time.Millisecond * 10).
+		WithStore(memStore).
+		Build()
 	a := NewAuthify(memStore, shortLivedJWT)
 	_ = a.Store.CreateUser("alice", "password123")
 
@@ -109,11 +109,11 @@ func TestExpiredToken(t *testing.T) {
 func TestAutoRefreshExpiredToken(t *testing.T) {
 	memStore := NewInMemoryUserStore()
 	shortLivedJWT, _ := NewJWTManager().
-	WithAccessSecret("supersecret").
-	WithRefreshSecret("supersecret2").
-	WithTokenDuration(time.Second*1).
-	WithStore(memStore).
-	Build()
+		WithAccessSecret("supersecret").
+		WithRefreshSecret("supersecret2").
+		WithTokenDuration(time.Second * 1).
+		WithStore(memStore).
+		Build()
 	a := NewAuthify(memStore, shortLivedJWT)
 	_ = a.Store.CreateUser("alice", "password123")
 
