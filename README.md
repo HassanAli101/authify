@@ -2,30 +2,56 @@
 
 Authify is a lightweight authentication and authorization service written in Go.  
 It provides endpoints to **create users**, **generate tokens**, **verify tokens**, and **refresh tokens**.  
-The service is designed to be reusable across future projects that need a simple and secure way to handle auth.
+The service is designed to be reusable across projects that need a simple, secure, and configurable auth system.
 
 ---
 
 ## Features
 
-- User creation with username/password.
-- JWT-based token generation.
-- Token verification to check validity and extract user role.
+- User creation with username/password and **customizable user schema**.
+- JWT-based token generation with dynamic claims.
+- Token verification to check validity and extract user info.
 - Token refresh mechanism for expired or near-expiry tokens.
-- Minimal, stateless design for easy integration with any project.
+- **Configurable database table structure** via YAML.
+- **gRPC support** for inter-service communication.
+- **CLI tool** for direct interaction with Authify without HTTP.
+- Minimal, stateless design for easy integration.
 
 ---
 
-## Endpoints
+## Configuration
 
-- `POST /createUser` → Create a new user with username and password.
-- `POST /generateToken` → Generate a JWT access token and a refresh token for a valid user.
-- `POST /verifyToken` → Verify if a JWT token is valid and retrieve user info.
-- `POST /refreshToken` → Refresh an existing JWT access token using a refresh token.
+Authify uses a **YAML configuration** file (`configs/store.yml`) to define the database schema and table behavior:
 
----
+```yaml
+version: 1
 
-### Prerequisites
+table:
+  name: users
+  auto_create: true
+  columns:
+    username:
+      type: text
+      primary_key: true
+      required: true
 
-- Go 1.23+
-- PostgreSQL (or whichever DB you configure in `.env`)
+    password:
+      type: text
+      required: true
+      hidden: true
+
+    role:
+      type: text
+      default: user
+      jwt_claim: role
+
+    email:
+      type: text
+      unique: true
+      jwt_claim: email
+
+    phone:
+      type: text
+
+    remember_me_days:
+      type: integer
