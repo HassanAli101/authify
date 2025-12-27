@@ -1,13 +1,17 @@
 package lib
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/HassanAli101/authify"
+	"github.com/HassanAli101/authify/stores"
 	"github.com/joho/godotenv"
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
@@ -69,18 +73,23 @@ func ReadEnvVars() (*Config, error) {
 }
 
 // ParseUsernamePassword extracts username and password from HTTP headers.
-func ParseUsernamePassword(r *http.Request) (string, string, error) {
-	username := r.Header.Get("authify-username")
-	password := r.Header.Get("authify-password")
+func ParseUserHeaders(r *http.Request, tableCfg stores.TableConfig) (map[string]string, error) {
+	userData := make(map[string]string)
 
-	if username == "" {
-		return "", "", authify.ErrMissingUsernameHeader
-	}
-	if password == "" {
-		return "", "", authify.ErrMissingPasswordHeader
+	for name, cfg := range tableCfg.Columns {
+		headerName := fmt.Sprintf("authify-%s", strings.ToLower(name))
+		val := r.Header.Get(headerName)
+
+		if cfg.Required && val == "" {
+			return nil, fmt.Errorf("missing required header: %s", headerName)
+		}
+
+		if val != "" {
+			userData[name] = val
+		}
 	}
 
-	return username, password, nil
+	return userData, nil
 }
 
 // ParseToken extracts access and refresh tokens from HTTP headers.
@@ -96,4 +105,29 @@ func ParseToken(r *http.Request) (string, string, error) {
 	}
 
 	return accessToken, refreshToken, nil
+}
+
+func LoadStoreConfig(path string) (*stores.StoreConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg stores.StoreConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	if cfg.Version != 1 {
+		return nil, fmt.Errorf("unsupported store config version: %d", cfg.Version)
+	}
+
+	out, err := yaml.Marshal(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal config for printing: %w", err)
+	}
+
+	fmt.Printf("Loaded Store Config:\n%s\n", string(out))
+
+	return &cfg, nil
 }

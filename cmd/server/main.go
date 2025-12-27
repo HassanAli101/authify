@@ -15,6 +15,7 @@ import (
 
 	"github.com/HassanAli101/authify"
 	"github.com/HassanAli101/authify/lib"
+	"github.com/HassanAli101/authify/stores"
 )
 
 var (
@@ -33,7 +34,12 @@ func init() {
 		return
 	}
 
-	dbStore, err := authify.NewAuthifyDB(cfg.DatabaseURL, cfg.TableName)
+	storeCfg, err := lib.LoadStoreConfig("configs/store.yml")
+	if err != nil {
+		log.Fatalf("Error loading store config: %v", err)
+	}
+
+	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, storeCfg.Table)
 	if err != nil {
 		log.Fatalf("Error connecting to db %v\n", err)
 		return
@@ -56,10 +62,10 @@ func init() {
 // starts the server on the configured port. If the server fails to
 // start, it logs the error and terminates the program.
 func main() {
-	http.HandleFunc("/createUser", handleCreateUser)
-	http.HandleFunc("/generateToken", handleGenerateToken)
-	http.HandleFunc("/verifyToken", handleVerifyToken)
-	http.HandleFunc("/refreshToken", handleRefreshToken)
+	http.HandleFunc("/create-user", handleCreateUser)
+	http.HandleFunc("/generate-token", handleGenerateToken)
+	http.HandleFunc("/verify-token", handleVerifyToken)
+	http.HandleFunc("/refresh-token", handleRefreshToken)
 	log.Printf("Server Listening at port %s\n", cfg.ServerPort)
 	err := http.ListenAndServe(":"+cfg.ServerPort, nil)
 	if err != nil {
@@ -72,18 +78,20 @@ func main() {
 // creates a new user in the data store, and responds with a success
 // message or an error. Logs the username when the user is created.
 func handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	username, password, err := lib.ParseUsernamePassword(r)
+	userData, err := lib.ParseUserHeaders(r, a.Store.TableConfig())
 	if err != nil {
-		fmt.Fprint(w, fmt.Sprintf("Error occured while creating user: %v\n", err))
+		http.Error(w, fmt.Sprintf("Error parsing headers: %v", err), http.StatusBadRequest)
 		return
 	}
-	err = a.Store.CreateUser(username, password)
+
+	err = a.Store.CreateUser(userData)
 	if err != nil {
-		fmt.Fprintf(w, fmt.Sprintf("Error occured while creating user: %v\n", err))
+		http.Error(w, fmt.Sprintf("Error creating user: %v", err), http.StatusInternalServerError)
 		return
 	}
+
 	fmt.Fprint(w, "User created!\n")
-	log.Printf("Created user with username: %v\n", username)
+	log.Printf("Created user with username: %v\n", userData["username"])
 }
 
 // handleGenerateToken handles the "/generateToken" route.
@@ -93,18 +101,41 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 // a token is successfully generated.
 func handleGenerateToken(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.RemoteAddr
-	username, password, err := lib.ParseUsernamePassword(r)
+
+	// Parse all user headers dynamically
+	userData, err := lib.ParseUserHeaders(r, a.Store.TableConfig())
 	if err != nil {
-		fmt.Fprint(w, fmt.Sprintf("Error occured while generating token: %v\n", err))
+		http.Error(w, fmt.Sprintf("Error occurred while parsing headers: %v", err), http.StatusBadRequest)
 		return
 	}
+
+	username, ok := userData["username"]
+	if !ok {
+		http.Error(w, "username is required to generate token", http.StatusBadRequest)
+		return
+	}
+
+	password, ok := userData["password"]
+	if !ok {
+		http.Error(w, "password is required to generate token", http.StatusBadRequest)
+		return
+	}
+
+	// Generate access token
 	accessToken, err := a.Tokens.GenerateToken(username, password)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error occurred while generating token: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Generate refresh token
 	refreshToken, err := a.Tokens.GenerateRefreshToken(username, ipAddress)
 	if err != nil {
-		fmt.Fprintf(w, fmt.Sprintf("Error occured while generating token: %v\n", err))
+		http.Error(w, fmt.Sprintf("Error occurred while generating refresh token: %v", err), http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprint(w, fmt.Sprintf("Access Token: %v\nRefresh Token: %v\n", accessToken, refreshToken))
+
+	fmt.Fprintf(w, "Access Token: %v\nRefresh Token: %v\n", accessToken, refreshToken)
 	log.Printf("Generated token for user with username: %v\n", username)
 }
 

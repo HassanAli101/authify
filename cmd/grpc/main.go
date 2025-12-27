@@ -17,19 +17,20 @@ import (
 	authify "github.com/HassanAli101/authify"
 	authifygrpc "github.com/HassanAli101/authify/internal/grpc"
 	"github.com/HassanAli101/authify/lib"
+	stores "github.com/HassanAli101/authify/stores"
 	"google.golang.org/grpc"
 )
 
 // main is the entry point for the Authify gRPC server.
 //
 // It performs the following steps:
-//   1. Loads configuration values from environment variables.
-//   2. Initializes the database-backed user store.
-//   3. Builds a JWTManager using the configured secrets and token duration.
-//   4. Constructs the Authify service with its dependencies.
-//   5. Creates a TCP listener on port 50051.
-//   6. Registers the Authify gRPC service implementation.
-//   7. Starts serving incoming gRPC requests.
+//  1. Loads configuration values from environment variables.
+//  2. Initializes the database-backed user store.
+//  3. Builds a JWTManager using the configured secrets and token duration.
+//  4. Constructs the Authify service with its dependencies.
+//  5. Creates a TCP listener on port 50051.
+//  6. Registers the Authify gRPC service implementation.
+//  7. Starts serving incoming gRPC requests.
 //
 // If any critical step fails (such as binding the TCP port),
 // the server logs the error and terminates.
@@ -37,8 +38,13 @@ func main() {
 	// Load environment-based configuration.
 	cfg, _ := lib.ReadEnvVars()
 
+	storeCfg, err := lib.LoadStoreConfig("configs/store.yml")
+	if err != nil {
+		log.Fatalf("Error loading store config: %v", err)
+	}
+
 	// Initialize the user store backed by the configured database.
-	store, _ := authify.NewAuthifyDB(cfg.DatabaseURL, cfg.TableName)
+	store, _ := stores.NewAuthifyDB(cfg.DatabaseURL, storeCfg.Table)
 
 	// Build the JWT manager using the configured secrets and token lifetime.
 	jwtManager, _ := authify.NewJWTManager().

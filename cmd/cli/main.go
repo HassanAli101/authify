@@ -11,6 +11,7 @@ import (
 
 	"github.com/HassanAli101/authify"
 	"github.com/HassanAli101/authify/lib"
+	"github.com/HassanAli101/authify/stores"
 )
 
 var (
@@ -26,7 +27,12 @@ func init() {
 		log.Fatalf("Error loading config: %v", err)
 	}
 
-	dbStore, err := authify.NewAuthifyDB(cfg.DatabaseURL, cfg.TableName)
+	storeCfg, err := lib.LoadStoreConfig("configs/store.yml")
+	if err != nil {
+		log.Fatalf("Error loading store config: %v", err)
+	}
+
+	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, storeCfg.Table)
 	if err != nil {
 		log.Fatalf("Error connecting to db: %v", err)
 	}
@@ -101,7 +107,10 @@ func handleCreateUser() {
 		log.Fatal("username and password are required")
 	}
 
-	err := a.Store.CreateUser(*username, *password)
+	err := a.Store.CreateUser(map[string]string{
+		"username": *username,
+		"password": *password,
+	})
 	if err != nil {
 		log.Fatalf("Error creating user: %v", err)
 	}

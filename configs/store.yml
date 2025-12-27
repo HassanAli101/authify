@@ -1,0 +1,32 @@
+version: 1
+
+table:
+  name: users
+  auto_create: true
+
+  columns:
+    username:
+      type: text
+      primary_key: true
+      required: true
+
+    password:
+      type: text
+      required: true
+      hidden: true
+
+    role:
+      type: text
+      default: user
+      jwt_claim: role
+
+    email:
+      type: text
+      unique: true
+      jwt_claim: email
+
+    phone:
+      type: text
+
+    remember_me_days:
+      type: int

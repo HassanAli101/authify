@@ -1,13 +1,18 @@
 package authify
 
+import (
+	"github.com/HassanAli101/authify/stores"
+)
+
 type Authify struct {
 	Store  Store
 	Tokens TokenManager
 }
 
 type Store interface {
-	CreateUser(username, password string) error
-	GetUserRole(username string, password string) (role string, err error)
+	CreateUser(data map[string]string) error
+	GetUserInfo(username, password string) (map[string]string, error)
+	TableConfig() stores.TableConfig
 }
 
 type TokenManager interface {

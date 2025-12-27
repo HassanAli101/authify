@@ -65,15 +65,18 @@ func (m *JWTManager) Build() (*JWTManager, error) {
 // Returns a signed token string or an error if authentication fails.
 // Documentation: https://pkg.go.dev/github.com/golang-jwt/jwt/v5
 func (m *JWTManager) GenerateToken(username string, password string) (string, error) {
-	role, err := m.store.GetUserRole(username, password)
+	userInfo, err := m.store.GetUserInfo(username, password)
 	if err != nil {
 		return "", err
 	}
 
 	claims := jwt.MapClaims{
-		"username": username,
-		"role":     role,
-		"exp":      time.Now().Add(m.tokenDuration).Unix(),
+		"iss": authifyIssuer,
+		"exp": time.Now().Add(m.tokenDuration).Unix(),
+	}
+
+	for k, v := range userInfo {
+		claims[k] = v
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

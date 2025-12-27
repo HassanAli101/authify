@@ -6,4 +6,5 @@ import (
 
 const (
 	defaultAccessTokenDuration = 15 * time.Minute
+	authifyIssuer              = "authify-issuer"
 )

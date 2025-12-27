@@ -16,7 +16,10 @@ func NewAuthifyGRPCServer(a *authify.Authify) *AuthifyGRPCServer {
 }
 
 func (s *AuthifyGRPCServer) CreateUser(ctx context.Context, req *CreateUserRequest) (*Empty, error) {
-	err := s.auth.Store.CreateUser(req.Username, req.Password)
+	err := s.auth.Store.CreateUser(map[string]string{
+	"username": req.Username,
+	"password": req.Password,
+})
 	if err != nil {
 		return nil, err
 	}
