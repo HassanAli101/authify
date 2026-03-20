@@ -1,0 +1,39 @@
+issuer: authify
+
+access_token:
+  duration: 15m
+  signing_method: HS256
+  claims:
+    username:
+      source: db
+      column: username
+      is_identifier: true
+
+    role:
+      source: db
+      column: role
+
+    email:
+      source: db
+      column: email
+    
+    phone:
+      source: db
+      column: phone 
+
+refresh_token:
+  duration: 72h
+  absolute_duration: 360h
+
+  claims:
+    username:
+      source: db
+      column: username
+
+    ip:
+      source: request
+      header: ip
+
+    issued_at:
+      source: system
+      type: iat

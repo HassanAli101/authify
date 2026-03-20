@@ -40,6 +40,12 @@ func init() {
 		log.Fatalf("Error loading store config: %v", err)
 	}
 
+	tokenCfg, err := lib.LoadTokenConfig("configs/token.yml")
+	if err != nil {
+		log.Fatalf("failed to load token config: %v", err)
+	}
+
+
 	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, *storeCfg)
 	if err != nil {
 		log.Fatalf("Error connecting to db %v\n", err)
@@ -47,9 +53,9 @@ func init() {
 	}
 
 	jwtManager, err := token.NewJWTManager().
+		WithConfig(tokenCfg).
 		WithAccessSecret(cfg.JWTAccessSecret).
 		WithRefreshSecret(cfg.JWTRefreshSecret).
-		WithTokenDuration(cfg.TokenExpiration).
 		WithStore(dbStore).
 		Build()
 	if err != nil {
@@ -123,14 +129,17 @@ func handleGenerateToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate access token
-	accessToken, err := a.Tokens.GenerateToken(username, password)
+	accessToken, err := a.Tokens.GenerateAccessToken(username, password)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error occurred while generating token: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	// Generate refresh token
-	refreshToken, err := a.Tokens.GenerateRefreshToken(username, ipAddress)
+	reqData := map[string]any{
+		"ip": ipAddress,
+	}
+	refreshToken, err := a.Tokens.GenerateRefreshToken(username, reqData)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error occurred while generating refresh token: %v", err), http.StatusInternalServerError)
 		return
@@ -145,18 +154,18 @@ func handleGenerateToken(w http.ResponseWriter, r *http.Request) {
 // and responds with the associated username and role if the token
 // is valid. Logs the username when the token is successfully verified.
 func handleVerifyToken(w http.ResponseWriter, r *http.Request) {
-	accessToken, _, err := lib.ParseToken(r)
+	accessToken, err := lib.ParseAccessToken(r)
 	if err != nil {
 		fmt.Fprint(w, fmt.Sprintf("Error occured while verifying token: %v\n", err))
 		return
 	}
-	username, role, err := a.Tokens.VerifyToken(accessToken, false)
+	claims, err := a.Tokens.VerifyAccessToken(accessToken)
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("Error occured while validating token: %v\n", err))
 		return
 	}
-	fmt.Fprint(w, fmt.Sprintf("Token validated with user %v and their role: %v\n", username, role))
-	log.Printf("Verified token for user with username: %v\n", username)
+	fmt.Fprint(w, fmt.Sprintf("Token validated with claims %v \n", claims))
+	log.Printf("Verified token for user with claims: %v\n", claims)
 }
 
 // handleRefreshToken handles the "/refreshToken" route.
@@ -164,16 +173,25 @@ func handleVerifyToken(w http.ResponseWriter, r *http.Request) {
 // and responds with the new token if successful. Logs the username when
 // a token is refreshed.
 func handleRefreshToken(w http.ResponseWriter, r *http.Request) {
-	accessToken, refreshToken, err := lib.ParseToken(r)
+	accessToken, err := lib.ParseAccessToken(r)
 	if err != nil {
 		fmt.Fprint(w, fmt.Sprintf("Error occured while refreshing token: %v\n", err))
 		return
 	}
-	newToken, username, err := a.Tokens.RefreshToken(accessToken, refreshToken)
+	refreshToken, err := lib.ParseRefreshToken(r)
+	if err != nil {
+		fmt.Fprint(w, fmt.Sprintf("Error occured while refreshing token: %v\n", err))
+		return
+	}
+	reqData := map[string]any{
+		"ip": r.RemoteAddr,
+		"user_agent": r.UserAgent(),
+	}
+	newToken, claims, err := a.Tokens.RefreshToken(accessToken, refreshToken, reqData)
 	if err != nil {
 		fmt.Fprintf(w, fmt.Sprintf("Error occured while validating token: %v\n", err))
 		return
 	}
 	fmt.Fprint(w, fmt.Sprintf("Token Refreshed! new token is: %v\n", newToken))
-	log.Printf("Refreshed token for user with username: %v\n", username)
+	log.Printf("Refreshed token for user with username: %v\n", claims)
 }

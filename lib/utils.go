@@ -5,11 +5,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/token"
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v2"
 )
@@ -18,9 +17,7 @@ type Config struct {
 	DatabaseURL      string
 	JWTAccessSecret  string
 	JWTRefreshSecret string
-	TokenExpiration  time.Duration
 	ServerPort       string
-	TableName        string
 }
 
 // ReadEnvVars loads configuration values from a .env file or system environment variables.
@@ -48,25 +45,9 @@ func ReadEnvVars() (*Config, error) {
 		return nil, ErrMissingJWTRefreshSecret
 	}
 
-	expStr := os.Getenv("TOKEN_EXPIRATION_TIME_MINUTES")
-	if expStr == "" {
-		return nil, ErrMissingTokenExpiration
-	}
-
-	expMinutes, err := strconv.Atoi(expStr)
-	if err != nil {
-		return nil, ErrInvalidTokenExpiration
-	}
-	cfg.TokenExpiration = time.Duration(expMinutes) * time.Minute
-
 	cfg.ServerPort = os.Getenv("SERVER_PORT")
 	if cfg.ServerPort == "" {
 		return nil, ErrMissingServerPort
-	}
-
-	cfg.TableName = os.Getenv("TABLE_NAME")
-	if cfg.TableName == "" {
-		return nil, ErrMissingTableName
 	}
 
 	return cfg, nil
@@ -93,18 +74,24 @@ func ParseUserHeaders(r *http.Request, storeCfg stores.StoreConfig) (map[string]
 }
 
 // ParseToken extracts access and refresh tokens from HTTP headers.
-func ParseToken(r *http.Request) (string, string, error) {
+func ParseAccessToken(r *http.Request) (string, error) {
 	accessToken := r.Header.Get("authify-access")
-	refreshToken := r.Header.Get("authify-refresh")
 
 	if accessToken == "" {
-		return "", "", ErrMissingAccessTokenHeader
-	}
-	if refreshToken == "" {
-		return "", "", ErrMissingRefreshTokenHeader
+		return "", ErrMissingAccessTokenHeader
 	}
 
-	return accessToken, refreshToken, nil
+	return accessToken, nil
+}
+
+func ParseRefreshToken(r *http.Request) (string, error) {
+	refreshToken := r.Header.Get("authify-refresh")
+
+	if refreshToken == "" {
+		return "", ErrMissingRefreshTokenHeader
+	}
+
+	return refreshToken, nil
 }
 
 func LoadStoreConfig(path string) (*stores.StoreConfig, error) {
@@ -128,4 +115,16 @@ func LoadStoreConfig(path string) (*stores.StoreConfig, error) {
 	return &cfg, nil
 }
 
-// func LoadTokenConfig(path string) ()
+func LoadTokenConfig(path string) (*token.TokenConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg token.TokenConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}

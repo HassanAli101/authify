@@ -39,8 +39,7 @@ message TokenResponse {
 }
 
 message VerifyTokenResponse {
-    string username = 1;
-    string role = 2;
+  map<string, string> claims = 1;
 }
 
 message Empty {}

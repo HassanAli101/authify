@@ -44,14 +44,19 @@ func main() {
 		log.Fatalf("Error loading store config: %v", err)
 	}
 
+	tokenCfg, err := lib.LoadTokenConfig("configs/token.yml")
+	if err != nil {
+		log.Fatalf("Error loading token config: %v", err)
+	}
+
 	// Initialize the user store backed by the configured database.
 	store, _ := stores.NewAuthifyDB(cfg.DatabaseURL, *storeCfg)
 
 	// Build the JWT manager using the configured secrets and token lifetime.
 	jwtManager, _ := token.NewJWTManager().
+		WithConfig(tokenCfg).
 		WithAccessSecret(cfg.JWTAccessSecret).
 		WithRefreshSecret(cfg.JWTRefreshSecret).
-		WithTokenDuration(cfg.TokenExpiration).
 		WithStore(store).
 		Build()
 
