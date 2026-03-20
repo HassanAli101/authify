@@ -1,8 +1,8 @@
 package stores
 
 type Store interface {
-	CreateUser(data map[string]string) error
-	GetUserInfo(username, password string) (map[string]string, error)
+	CreateUser(data map[string]any) error
+	GetUserInfo(userIdentifier, password string) (map[string]any, error)
 	StoreConfig() StoreConfig
 }
 
@@ -19,6 +19,7 @@ type ColumnConfig struct {
 	Required   bool   `yaml:"required"`
 	Default    string `yaml:"default"`
 	Hidden     bool   `yaml:"hidden"`
+	IsPassword bool   `yaml:"is_password"`
 	JWTClaim   string `yaml:"jwt_claim"`
 }
 
@@ -29,4 +30,22 @@ var allowedTypes = map[string]string{
 	"uuid":      "UUID",
 	"jsonb":     "JSONB",
 	"timestamp": "TIMESTAMP",
+}
+
+func (cfg StoreConfig) getIdentifierColumnName() string {
+	for name, cfg := range cfg.Columns {
+		if cfg.PrimaryKey {
+			return name
+		}
+	}
+	return ""
+}
+
+func (cfg StoreConfig) getPasswordColumnName() string {
+	for name, cfg := range cfg.Columns {
+		if cfg.IsPassword {
+			return name
+		}
+	}
+	return ""
 }

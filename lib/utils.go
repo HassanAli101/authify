@@ -73,8 +73,8 @@ func ReadEnvVars() (*Config, error) {
 }
 
 // ParseUsernamePassword extracts username and password from HTTP headers.
-func ParseUserHeaders(r *http.Request, storeCfg stores.StoreConfig) (map[string]string, error) {
-	userData := make(map[string]string)
+func ParseUserHeaders(r *http.Request, storeCfg stores.StoreConfig) (map[string]any, error) {
+	userData := make(map[string]any)
 
 	for name, cfg := range storeCfg.Columns {
 		headerName := fmt.Sprintf("authify-%s", strings.ToLower(name))

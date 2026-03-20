@@ -110,13 +110,13 @@ func handleGenerateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, ok := userData["username"]
+	username, ok := userData["username"].(string)
 	if !ok {
 		http.Error(w, "username is required to generate token", http.StatusBadRequest)
 		return
 	}
 
-	password, ok := userData["password"]
+	password, ok := userData["password"].(string)
 	if !ok {
 		http.Error(w, "password is required to generate token", http.StatusBadRequest)
 		return

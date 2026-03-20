@@ -41,7 +41,7 @@ func setupAuthify() *Authify {
 
 	a := NewAuthify(memStore, jwtManager)
 
-	_ = a.Store.CreateUser(map[string]string{
+	_ = a.Store.CreateUser(map[string]any{
 		"username": "alice",
 		"password": "password123",
 	})
@@ -52,7 +52,7 @@ func setupAuthify() *Authify {
 func TestCreateUser(t *testing.T) {
 	a := setupAuthify()
 
-	err := a.Store.CreateUser(map[string]string{
+	err := a.Store.CreateUser(map[string]any{
 		"username": "bob",
 		"password": "securepass",
 	})
@@ -128,7 +128,7 @@ func TestExpiredToken(t *testing.T) {
 
 	a := NewAuthify(memStore, shortLivedJWT)
 
-	_ = a.Store.CreateUser(map[string]string{
+	_ = a.Store.CreateUser(map[string]any{
 		"username": "alice",
 		"password": "password123",
 	})
@@ -158,7 +158,7 @@ func TestAutoRefreshExpiredToken(t *testing.T) {
 
 	a := NewAuthify(memStore, shortLivedJWT)
 
-	_ = a.Store.CreateUser(map[string]string{
+	_ = a.Store.CreateUser(map[string]any{
 		"username": "alice",
 		"password": "password123",
 	})

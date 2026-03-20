@@ -108,7 +108,7 @@ func handleCreateUser() {
 		log.Fatal("username and password are required")
 	}
 
-	err := a.Store.CreateUser(map[string]string{
+	err := a.Store.CreateUser(map[string]any{
 		"username": *username,
 		"password": *password,
 	})

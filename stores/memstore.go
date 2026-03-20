@@ -27,11 +27,11 @@ func (m *InMemoryUserStore) StoreConfig() StoreConfig {
 }
 
 // CreateUser creates a user using dynamic fields defined in config
-func (m *InMemoryUserStore) CreateUser(data map[string]string) error {
+func (m *InMemoryUserStore) CreateUser(data map[string]any) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	username, ok := data["username"]
+	username, ok := data["username"].(string)
 	if !ok {
 		return ErrUserNotFound
 	}
@@ -43,7 +43,7 @@ func (m *InMemoryUserStore) CreateUser(data map[string]string) error {
 	user := make(map[string]string)
 
 	for name, cfg := range m.storeCfg.Columns {
-		val, ok := data[name]
+		val, ok := data[name].(string)
 
 		if cfg.Required && !ok && cfg.Default == "" {
 			return ErrInvalidPassword
@@ -73,7 +73,7 @@ func (m *InMemoryUserStore) CreateUser(data map[string]string) error {
 }
 
 // GetUserInfo authenticates and returns non-hidden user fields
-func (m *InMemoryUserStore) GetUserInfo(username, password string) (map[string]string, error) {
+func (m *InMemoryUserStore) GetUserInfo(username, password string) (map[string]any, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -91,7 +91,7 @@ func (m *InMemoryUserStore) GetUserInfo(username, password string) (map[string]s
 		return nil, ErrInvalidPassword
 	}
 
-	result := make(map[string]string)
+	result := make(map[string]any)
 	for name, cfg := range m.storeCfg.Columns {
 		if cfg.Hidden {
 			continue
