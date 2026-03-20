@@ -1,11 +1,6 @@
 package stores
 
 type StoreConfig struct {
-	Version int         `yaml:"version"`
-	Table   TableConfig `yaml:"table"`
-}
-
-type TableConfig struct {
 	Name       string                  `yaml:"name"`
 	AutoCreate bool                    `yaml:"auto_create"`
 	Columns    map[string]ColumnConfig `yaml:"columns"`

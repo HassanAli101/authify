@@ -7,7 +7,7 @@ import (
 	"github.com/HassanAli101/authify/stores"
 )
 
-var testTableConfig = stores.TableConfig{
+var testStoreConfig = stores.StoreConfig{
 	Name:       "users",
 	AutoCreate: false,
 	Columns: map[string]stores.ColumnConfig{
@@ -29,7 +29,7 @@ var testTableConfig = stores.TableConfig{
 }
 
 func setupAuthify() *Authify {
-	memStore := stores.NewInMemoryUserStore(testTableConfig)
+	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
 	jwtManager, _ := NewJWTManager().
 		WithAccessSecret("supersecret").
@@ -116,7 +116,7 @@ func TestRefreshToken(t *testing.T) {
 }
 
 func TestExpiredToken(t *testing.T) {
-	memStore := stores.NewInMemoryUserStore(testTableConfig)
+	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
 	shortLivedJWT, _ := NewJWTManager().
 		WithAccessSecret("supersecret").
@@ -146,7 +146,7 @@ func TestExpiredToken(t *testing.T) {
 }
 
 func TestAutoRefreshExpiredToken(t *testing.T) {
-	memStore := stores.NewInMemoryUserStore(testTableConfig)
+	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
 	shortLivedJWT, _ := NewJWTManager().
 		WithAccessSecret("supersecret").

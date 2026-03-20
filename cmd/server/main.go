@@ -39,7 +39,7 @@ func init() {
 		log.Fatalf("Error loading store config: %v", err)
 	}
 
-	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, storeCfg.Table)
+	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, *storeCfg)
 	if err != nil {
 		log.Fatalf("Error connecting to db %v\n", err)
 		return
@@ -78,7 +78,7 @@ func main() {
 // creates a new user in the data store, and responds with a success
 // message or an error. Logs the username when the user is created.
 func handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	userData, err := lib.ParseUserHeaders(r, a.Store.TableConfig())
+	userData, err := lib.ParseUserHeaders(r, a.Store.StoreConfig())
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error parsing headers: %v", err), http.StatusBadRequest)
 		return
@@ -103,7 +103,7 @@ func handleGenerateToken(w http.ResponseWriter, r *http.Request) {
 	ipAddress := r.RemoteAddr
 
 	// Parse all user headers dynamically
-	userData, err := lib.ParseUserHeaders(r, a.Store.TableConfig())
+	userData, err := lib.ParseUserHeaders(r, a.Store.StoreConfig())
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error occurred while parsing headers: %v", err), http.StatusBadRequest)
 		return

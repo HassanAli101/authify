@@ -2,6 +2,7 @@ package lib
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -73,10 +74,10 @@ func ReadEnvVars() (*Config, error) {
 }
 
 // ParseUsernamePassword extracts username and password from HTTP headers.
-func ParseUserHeaders(r *http.Request, tableCfg stores.TableConfig) (map[string]string, error) {
+func ParseUserHeaders(r *http.Request, storeCfg stores.StoreConfig) (map[string]string, error) {
 	userData := make(map[string]string)
 
-	for name, cfg := range tableCfg.Columns {
+	for name, cfg := range storeCfg.Columns {
 		headerName := fmt.Sprintf("authify-%s", strings.ToLower(name))
 		val := r.Header.Get(headerName)
 
@@ -118,16 +119,14 @@ func LoadStoreConfig(path string) (*stores.StoreConfig, error) {
 		return nil, err
 	}
 
-	if cfg.Version != 1 {
-		return nil, fmt.Errorf("unsupported store config version: %d", cfg.Version)
-	}
-
 	out, err := yaml.Marshal(&cfg)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal config for printing: %w", err)
 	}
 
-	fmt.Printf("Loaded Store Config:\n%s\n", string(out))
+	log.Printf("Loaded Store Config:\n%s\n", string(out))
 
 	return &cfg, nil
 }
+
+// func LoadTokenConfig

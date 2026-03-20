@@ -12,7 +12,7 @@ type Authify struct {
 type Store interface {
 	CreateUser(data map[string]string) error
 	GetUserInfo(username, password string) (map[string]string, error)
-	TableConfig() stores.TableConfig
+	StoreConfig() stores.StoreConfig
 }
 
 type TokenManager interface {

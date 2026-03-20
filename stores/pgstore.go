@@ -14,14 +14,14 @@ import (
 type AuthifyDB struct {
 	conn     *pgx.Conn
 	ctx      context.Context
-	tableCfg TableConfig
+	storeCfg StoreConfig
 }
 
 // This function takes in a connection string and a table name.
 // It initializes a connection with the database, and sets its context as context.Background()
 // After that, it attempts to create table if it does not exist with the passed tablename and config in the store.yml file.
 // Documentation for pgx package: https://pkg.go.dev/github.com/jackc/pgx/v5
-func NewAuthifyDB(connString string, cfg TableConfig) (*AuthifyDB, error) {
+func NewAuthifyDB(connString string, cfg StoreConfig) (*AuthifyDB, error) {
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, connString)
 	if err != nil {
@@ -31,7 +31,7 @@ func NewAuthifyDB(connString string, cfg TableConfig) (*AuthifyDB, error) {
 	db := &AuthifyDB{
 		conn:     conn,
 		ctx:      ctx,
-		tableCfg: cfg,
+		storeCfg: cfg,
 	}
 
 	if cfg.AutoCreate {
@@ -54,7 +54,7 @@ func (db *AuthifyDB) CreateUser(data map[string]string) error {
 	placeholders := []string{}
 
 	i := 1
-	for name, cfg := range db.tableCfg.Columns {
+	for name, cfg := range db.storeCfg.Columns {
 		val, ok := data[name]
 
 		if cfg.Required && !ok && cfg.Default == "" {
@@ -81,7 +81,7 @@ func (db *AuthifyDB) CreateUser(data map[string]string) error {
 
 	query := fmt.Sprintf(
 		`INSERT INTO "%s" (%s) VALUES (%s)`,
-		db.tableCfg.Name,
+		db.storeCfg.Name,
 		strings.Join(cols, ", "),
 		strings.Join(placeholders, ", "),
 	)
@@ -95,7 +95,7 @@ func (db *AuthifyDB) CreateUser(data map[string]string) error {
 func (db *AuthifyDB) GetUserInfo(username, password string) (map[string]string, error) {
 	var selectCols []string
 
-	for name, _ := range db.tableCfg.Columns {
+	for name, _ := range db.storeCfg.Columns {
 		// if cfg.Hidden {
 		// 	continue
 		// }
@@ -105,7 +105,7 @@ func (db *AuthifyDB) GetUserInfo(username, password string) (map[string]string, 
 	query := fmt.Sprintf(
 		`SELECT %s FROM "%s" WHERE username = $1`,
 		strings.Join(selectCols, ", "),
-		db.tableCfg.Name,
+		db.storeCfg.Name,
 	)
 
 	row := db.conn.QueryRow(db.ctx, query, username)
@@ -146,7 +146,7 @@ func (db *AuthifyDB) GetUserInfo(username, password string) (map[string]string, 
 	// Build result map
 	result := map[string]string{}
 	i := 0
-	for name, _ := range db.tableCfg.Columns {
+	for name, _ := range db.storeCfg.Columns {
 		// if cfg.Hidden {
 		// 	continue
 		// }
@@ -157,16 +157,16 @@ func (db *AuthifyDB) GetUserInfo(username, password string) (map[string]string, 
 	return result, nil
 }
 
-func (db *AuthifyDB) TableConfig() TableConfig {
-	return db.tableCfg
+func (db *AuthifyDB) StoreConfig() StoreConfig {
+	return db.storeCfg
 }
 
 func (db *AuthifyDB) createTableIfNotExists() error {
-	if !db.tableCfg.AutoCreate {
+	if !db.storeCfg.AutoCreate {
 		return nil
 	}
 
-	cols, primaryKeys, err := db.constructColumnRowFromConfig(db.tableCfg.Columns)
+	cols, primaryKeys, err := db.constructColumnRowFromConfig(db.storeCfg.Columns)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func (db *AuthifyDB) createTableIfNotExists() error {
 
 	query := fmt.Sprintf(
 		`CREATE TABLE IF NOT EXISTS "%s" (%s);`,
-		db.tableCfg.Name,
+		db.storeCfg.Name,
 		strings.Join(cols, ", "),
 	)
 
@@ -187,7 +187,7 @@ func (db *AuthifyDB) createTableIfNotExists() error {
 }
 
 func (db *AuthifyDB) constructColumnRowFromConfig(columns map[string]ColumnConfig) (cols []string, primaryKeys []string, err error) {
-	for name, cfg := range db.tableCfg.Columns {
+	for name, cfg := range db.storeCfg.Columns {
 		sqlType, ok := allowedTypes[cfg.Type]
 		if !ok {
 			err = errors.New(fmt.Sprintf("unsupported column type: %s", cfg.Type))

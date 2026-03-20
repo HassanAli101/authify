@@ -32,7 +32,7 @@ func init() {
 		log.Fatalf("Error loading store config: %v", err)
 	}
 
-	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, storeCfg.Table)
+	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, *storeCfg)
 	if err != nil {
 		log.Fatalf("Error connecting to db: %v", err)
 	}

@@ -44,7 +44,7 @@ func main() {
 	}
 
 	// Initialize the user store backed by the configured database.
-	store, _ := stores.NewAuthifyDB(cfg.DatabaseURL, storeCfg.Table)
+	store, _ := stores.NewAuthifyDB(cfg.DatabaseURL, *storeCfg)
 
 	// Build the JWT manager using the configured secrets and token lifetime.
 	jwtManager, _ := authify.NewJWTManager().
