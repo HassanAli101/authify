@@ -14,10 +14,11 @@ import (
 	"log"
 	"net"
 
-	authify "github.com/HassanAli101/authify"
+	"github.com/HassanAli101/authify"
 	authifygrpc "github.com/HassanAli101/authify/internal/grpc"
 	"github.com/HassanAli101/authify/lib"
-	stores "github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/token"
 	"google.golang.org/grpc"
 )
 
@@ -47,7 +48,7 @@ func main() {
 	store, _ := stores.NewAuthifyDB(cfg.DatabaseURL, *storeCfg)
 
 	// Build the JWT manager using the configured secrets and token lifetime.
-	jwtManager, _ := authify.NewJWTManager().
+	jwtManager, _ := token.NewJWTManager().
 		WithAccessSecret(cfg.JWTAccessSecret).
 		WithRefreshSecret(cfg.JWTRefreshSecret).
 		WithTokenDuration(cfg.TokenExpiration).

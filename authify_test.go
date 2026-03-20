@@ -4,7 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/HassanAli101/authify/stores"
+	stores "github.com/HassanAli101/authify/stores"
+	token "github.com/HassanAli101/authify/token"
 )
 
 var testStoreConfig = stores.StoreConfig{
@@ -31,7 +32,7 @@ var testStoreConfig = stores.StoreConfig{
 func setupAuthify() *Authify {
 	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
-	jwtManager, _ := NewJWTManager().
+	jwtManager, _ := token.NewJWTManager().
 		WithAccessSecret("supersecret").
 		WithRefreshSecret("supersecret2").
 		WithTokenDuration(time.Minute * 1).
@@ -118,7 +119,7 @@ func TestRefreshToken(t *testing.T) {
 func TestExpiredToken(t *testing.T) {
 	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
-	shortLivedJWT, _ := NewJWTManager().
+	shortLivedJWT, _ := token.NewJWTManager().
 		WithAccessSecret("supersecret").
 		WithRefreshSecret("supersecret2").
 		WithTokenDuration(time.Millisecond * 10).
@@ -148,7 +149,7 @@ func TestExpiredToken(t *testing.T) {
 func TestAutoRefreshExpiredToken(t *testing.T) {
 	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
-	shortLivedJWT, _ := NewJWTManager().
+	shortLivedJWT, _ := token.NewJWTManager().
 		WithAccessSecret("supersecret").
 		WithRefreshSecret("supersecret2").
 		WithTokenDuration(time.Second * 1).

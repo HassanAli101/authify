@@ -16,6 +16,7 @@ import (
 	"github.com/HassanAli101/authify"
 	"github.com/HassanAli101/authify/lib"
 	"github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/token"
 )
 
 var (
@@ -45,7 +46,7 @@ func init() {
 		return
 	}
 
-	jwtManager, err := authify.NewJWTManager().
+	jwtManager, err := token.NewJWTManager().
 		WithAccessSecret(cfg.JWTAccessSecret).
 		WithRefreshSecret(cfg.JWTRefreshSecret).
 		WithTokenDuration(cfg.TokenExpiration).

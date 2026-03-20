@@ -1,5 +1,11 @@
 package stores
 
+type Store interface {
+	CreateUser(data map[string]string) error
+	GetUserInfo(username, password string) (map[string]string, error)
+	StoreConfig() StoreConfig
+}
+
 type StoreConfig struct {
 	Name       string                  `yaml:"name"`
 	AutoCreate bool                    `yaml:"auto_create"`

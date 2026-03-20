@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HassanAli101/authify"
 	"github.com/HassanAli101/authify/stores"
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v2"
@@ -28,7 +27,7 @@ type Config struct {
 func ReadEnvVars() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		if os.Getenv("DATABASE_URL") == "" {
-			return nil, authify.ErrEnvNotFound
+			return nil, ErrEnvNotFound
 		}
 	}
 
@@ -36,38 +35,38 @@ func ReadEnvVars() (*Config, error) {
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseURL == "" {
-		return nil, authify.ErrMissingDatabaseURL
+		return nil, ErrMissingDatabaseURL
 	}
 
 	cfg.JWTAccessSecret = os.Getenv("JWT_SECRET")
 	if cfg.JWTAccessSecret == "" {
-		return nil, authify.ErrMissingJWTSecret
+		return nil, ErrMissingJWTSecret
 	}
 
 	cfg.JWTRefreshSecret = os.Getenv("JWT_REFRESH_SECRET")
 	if cfg.JWTRefreshSecret == "" {
-		return nil, authify.ErrMissingJWTRefreshSecret
+		return nil, ErrMissingJWTRefreshSecret
 	}
 
 	expStr := os.Getenv("TOKEN_EXPIRATION_TIME_MINUTES")
 	if expStr == "" {
-		return nil, authify.ErrMissingTokenExpiration
+		return nil, ErrMissingTokenExpiration
 	}
 
 	expMinutes, err := strconv.Atoi(expStr)
 	if err != nil {
-		return nil, authify.ErrInvalidTokenExpiration
+		return nil, ErrInvalidTokenExpiration
 	}
 	cfg.TokenExpiration = time.Duration(expMinutes) * time.Minute
 
 	cfg.ServerPort = os.Getenv("SERVER_PORT")
 	if cfg.ServerPort == "" {
-		return nil, authify.ErrMissingServerPort
+		return nil, ErrMissingServerPort
 	}
 
 	cfg.TableName = os.Getenv("TABLE_NAME")
 	if cfg.TableName == "" {
-		return nil, authify.ErrMissingTableName
+		return nil, ErrMissingTableName
 	}
 
 	return cfg, nil
@@ -99,10 +98,10 @@ func ParseToken(r *http.Request) (string, string, error) {
 	refreshToken := r.Header.Get("authify-refresh")
 
 	if accessToken == "" {
-		return "", "", authify.ErrMissingAccessTokenHeader
+		return "", "", ErrMissingAccessTokenHeader
 	}
 	if refreshToken == "" {
-		return "", "", authify.ErrMissingRefreshTokenHeader
+		return "", "", ErrMissingRefreshTokenHeader
 	}
 
 	return accessToken, refreshToken, nil
@@ -129,4 +128,4 @@ func LoadStoreConfig(path string) (*stores.StoreConfig, error) {
 	return &cfg, nil
 }
 
-// func LoadTokenConfig
+// func LoadTokenConfig(path string) ()

@@ -96,9 +96,6 @@ func (db *AuthifyDB) GetUserInfo(username, password string) (map[string]string, 
 	var selectCols []string
 
 	for name, _ := range db.storeCfg.Columns {
-		// if cfg.Hidden {
-		// 	continue
-		// }
 		selectCols = append(selectCols, fmt.Sprintf(`"%s"`, name))
 	}
 

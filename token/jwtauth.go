@@ -1,4 +1,4 @@
-package authify
+package token
 
 import (
 	"errors"
@@ -7,57 +7,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 )
-
-// JWTManager is responsible for creating, verifying, and refreshing JWT tokens.
-// It stores a secret key, token duration, and store interface.
-type JWTManager struct {
-	accessTokenSecretKey  string
-	refreshTokenSecretKey string
-	tokenDuration         time.Duration
-	store                 Store
-}
-
-// NewJWTManager initializes a JWTManager with the given secret key, token expiry duration,
-// and database store reference for user validation.
-// all of these follow the builder pattern while making the jwt manager.
-func NewJWTManager() *JWTManager {
-	return &JWTManager{
-		tokenDuration: defaultAccessTokenDuration,
-	}
-}
-
-func (m *JWTManager) WithAccessSecret(secret string) *JWTManager {
-	m.accessTokenSecretKey = secret
-	return m
-}
-
-func (m *JWTManager) WithRefreshSecret(secret string) *JWTManager {
-	m.refreshTokenSecretKey = secret
-	return m
-}
-
-func (m *JWTManager) WithTokenDuration(d time.Duration) *JWTManager {
-	m.tokenDuration = d
-	return m
-}
-
-func (m *JWTManager) WithStore(store Store) *JWTManager {
-	m.store = store
-	return m
-}
-
-func (m *JWTManager) Build() (*JWTManager, error) {
-	if m.accessTokenSecretKey == "" {
-		return nil, ErrAccessTokenSecretNotProvided
-	}
-	if m.refreshTokenSecretKey == "" {
-		return nil, ErrRefreshTokenSecretNotProvided
-	}
-	if m.store == nil {
-		return nil, ErrStoreNotProvided
-	}
-	return m, nil
-}
 
 // GenerateToken validates username/password using the database,
 // fetches the associated role, and issues a signed JWT containing

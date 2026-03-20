@@ -1,4 +1,4 @@
-package authify
+package token
 
 import (
 	"time"
