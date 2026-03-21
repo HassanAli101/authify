@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	stores "github.com/HassanAli101/authify/stores"
-	token "github.com/HassanAli101/authify/token"
+	"github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/token"
 )
 
 var testStoreConfig = stores.StoreConfig{
@@ -13,9 +13,9 @@ var testStoreConfig = stores.StoreConfig{
 	AutoCreate: false,
 	Columns: map[string]stores.ColumnConfig{
 		"username": {
-			Type:         "text",
-			Required:     true,
-			PrimaryKey:   true,
+			Type:       "text",
+			Required:   true,
+			PrimaryKey: true,
 		},
 		"password": {
 			Type:       "text",
@@ -41,7 +41,7 @@ var testTokenConfig = &token.TokenConfig{
 		SigningMethod: "HS256",
 		Claims: map[string]token.ClaimConfig{
 			"username": {
-				Source:       "db",       // comes from user store
+				Source:       "db", // comes from user store
 				Column:       "username",
 				IsIdentifier: true,
 			},
@@ -75,7 +75,6 @@ var testTokenConfig = &token.TokenConfig{
 		},
 	},
 }
-
 
 func setupAuthify() *Authify {
 	memStore := stores.NewInMemoryUserStore(testStoreConfig)
@@ -185,7 +184,7 @@ func TestRefreshAccessToken(t *testing.T) {
 		"user_agent": "unit-test",
 	}
 	refreshToken, _ := a.Tokens.GenerateRefreshToken("alice", refreshData)
-
+	time.Sleep(time.Second)
 	newAccess, _, err := a.Tokens.RefreshToken(access, refreshToken, refreshData)
 	if err != nil {
 		t.Fatalf("failed to refresh token: %v", err)
@@ -238,13 +237,13 @@ func TestAutoRefreshExpiredToken(t *testing.T) {
 	_ = a.Store.CreateUser(map[string]any{
 		"username": "alice",
 		"password": "password123",
+		"email":    "alice@example.com",
 	})
 
 	access, _ := a.Tokens.GenerateAccessToken("alice", "password123")
 	refreshData := map[string]any{
 		"ip":         "127.0.0.1",
 		"user_agent": "unit-test",
-		"email":      "alice@example.com",
 	}
 	refreshToken, _ := a.Tokens.GenerateRefreshToken("alice", refreshData)
 
