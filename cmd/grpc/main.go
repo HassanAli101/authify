@@ -39,12 +39,12 @@ func main() {
 	// Load environment-based configuration.
 	cfg, _ := lib.ReadEnvVars()
 
-	storeCfg, err := lib.LoadStoreConfig("configs/store.yml")
+	storeCfg, err := lib.LoadStoreConfig(cfg.StoreConfigFilePath)
 	if err != nil {
 		log.Fatalf("Error loading store config: %v", err)
 	}
 
-	tokenCfg, err := lib.LoadTokenConfig("configs/token.yml")
+	tokenCfg, err := lib.LoadTokenConfig(cfg.TokenConfigFilePath)
 	if err != nil {
 		log.Fatalf("Error loading token config: %v", err)
 	}

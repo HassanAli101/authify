@@ -2,7 +2,6 @@ package lib
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -14,10 +13,12 @@ import (
 )
 
 type Config struct {
-	DatabaseURL      string
-	JWTAccessSecret  string
-	JWTRefreshSecret string
-	ServerPort       string
+	DatabaseURL         string
+	JWTAccessSecret     string
+	JWTRefreshSecret    string
+	ServerPort          string
+	StoreConfigFilePath string
+	TokenConfigFilePath string
 }
 
 // ReadEnvVars loads configuration values from a .env file or system environment variables.
@@ -48,6 +49,16 @@ func ReadEnvVars() (*Config, error) {
 	cfg.ServerPort = os.Getenv("SERVER_PORT")
 	if cfg.ServerPort == "" {
 		return nil, ErrMissingServerPort
+	}
+
+	cfg.StoreConfigFilePath = os.Getenv("STORE_CONFIG_FILE_PATH")
+	if cfg.StoreConfigFilePath == "" {
+		return nil, ErrMissingStoreConfig
+	}
+
+	cfg.TokenConfigFilePath = os.Getenv("TOKEN_CONFIG_FILE_PATH")
+	if cfg.TokenConfigFilePath == "" {
+		return nil, ErrMissingTokenConfig
 	}
 
 	return cfg, nil
@@ -104,13 +115,6 @@ func LoadStoreConfig(path string) (*stores.StoreConfig, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
-
-	out, err := yaml.Marshal(&cfg)
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal config for printing: %w", err)
-	}
-
-	log.Printf("Loaded Store Config:\n%s\n", string(out))
 
 	return &cfg, nil
 }

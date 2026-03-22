@@ -28,12 +28,12 @@ func init() {
 		log.Fatalf("Error loading config: %v", err)
 	}
 
-	storeCfg, err := lib.LoadStoreConfig("configs/store.yml")
+	storeCfg, err := lib.LoadStoreConfig(cfg.StoreConfigFilePath)
 	if err != nil {
 		log.Fatalf("Error loading store config: %v", err)
 	}
 
-	tokenCfg, err := lib.LoadTokenConfig("configs/token.yml")
+	tokenCfg, err := lib.LoadTokenConfig(cfg.TokenConfigFilePath)
 	if err != nil {
 		log.Fatalf("failed to load token config: %v", err)
 	}

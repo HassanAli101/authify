@@ -17,6 +17,8 @@ var (
 	ErrMissingTokenExpiration    = errors.New("TOKEN_EXPIRATION_TIME_MINUTES is not set")
 	ErrInvalidTokenExpiration    = errors.New("invalid TOKEN_EXPIRATION_TIME_MINUTES")
 	ErrMissingServerPort         = errors.New("SERVER_PORT is not set")
+	ErrMissingStoreConfig        = errors.New("STORE_CONFIG_FILE_PATH is not set")
+	ErrMissingTokenConfig        = errors.New("TOKEN_CONFIG_FILE_PATH is not set")
 	ErrMissingTableName          = errors.New("TABLE_NAME is not set")
 	ErrMissingUsernameHeader     = errors.New("username is missing in the request, please have a look at docs")
 	ErrMissingPasswordHeader     = errors.New("password is missing in the request, please have a look at docs")
