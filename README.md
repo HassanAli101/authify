@@ -2,6 +2,49 @@
 
 Authify is a lightweight authentication and authorization service written in Go. It provides endpoints and libraries to create users, generate tokens, verify tokens, and refresh tokens. The project is designed to be reusable across future applications that need a simple, secure, and configurable authentication layer.
 
+```mermaid
+flowchart TD
+
+    Client[Clients / Applications]
+
+    subgraph Interfaces
+        HTTP[HTTP Server]
+        GRPC[gRPC Server]
+        CLI[CLI Tool]
+    end
+
+    subgraph Core
+        AUTHIFY[Authify Core]
+        TOKENS[JWT Token Manager]
+        STORES[User Stores]
+    end
+
+    subgraph Configuration
+        TOKENCFG[Token Config]
+        STORECFG[Store Config]
+    end
+
+    subgraph Persistence
+        DB[(Database)]
+    end
+
+    Client --> HTTP
+    Client --> GRPC
+    Client --> CLI
+
+    HTTP --> AUTHIFY
+    GRPC --> AUTHIFY
+    CLI --> AUTHIFY
+
+    AUTHIFY --> TOKENS
+    AUTHIFY --> STORES
+
+    TOKENS --> TOKENCFG
+    STORES --> STORECFG
+
+    STORES --> DB
+```
+
 Authify can be used in two ways:
 
 * **As a standalone authentication microservice**
@@ -118,6 +161,7 @@ authify
 ```
 
 The service will start on: http://localhost:8080
+
 **Note:** remember to update the command's port forwarding part with the port you provided in the env file. Furthermore, the -v attaches the volume and it assumes your current directory has a `configs` folder with the config files as mentioned above and it has a .env file with all the relevant variables.
 
 ## Using Authify as a Go Library
@@ -151,11 +195,11 @@ Authify supports a standard authentication lifecycle:
 
   1. **User Creation:** A user is created through the configured user store.
 
-    2. **Access Token Generation:** The user authenticates using credentials, and an access token is generated.
+  2. **Access Token Generation:** The user authenticates using credentials, and an access token is generated.
 
-    3. **Token Verification:** Applications verify tokens to authenticate incoming requests.
+  3. **Token Verification:** Applications verify tokens to authenticate incoming requests.
 
-    4. **Token Refresh:** When an access token expires, a refresh token can be used to generate a new one. Authify automatically preserves and rebuilds claims during the refresh process.
+  4. **Token Refresh:** When an access token expires, a refresh token can be used to generate a new one. Authify automatically preserves and rebuilds claims during the refresh process.
 
 ## Configuration
 
@@ -167,35 +211,35 @@ Authify behavior is controlled through configuration files. Two configuration fi
 
 Example configuration files are available in `config-examples/.` These demonstrate how to configure:
 
-    - Database connections
+  - Database connections
 
-    - Claim sources
+  - Claim sources
 
-    - Token lifetimes
+  - Token lifetimes
 
-    - Refresh policies
+  - Refresh policies
 
 ## Important Project Components
 
 While the repository contains multiple packages, several components form the core of Authify:
 
-    - authify.go: Defines the main Authify struct and initialization logic that connects the user store and token manager.
+  - authify.go: Defines the main Authify struct and initialization logic that connects the user store and token manager.
 
-    - authify_test.go: Contains integration-style tests that validate the full authentication flow.
+  - authify_test.go: Contains integration-style tests that validate the full authentication flow.
 
-    - token/: Handles all JWT-related functionality, including access/refresh token generation, verification, and claim construction.
+  - token/: Handles all JWT-related functionality, including access/refresh token generation, verification, and claim construction.
 
-    - stores/: Provides pluggable user storage backends. Stores manage user creation, credential validation, and retrieving user attributes for claims.
+  - stores/: Provides pluggable user storage backends. Stores manage user creation, credential validation, and retrieving user attributes for claims.
 
-    - cmd/: Contains entrypoints for running Authify in different modes (HTTP server, gRPC server, CLI).
+  - cmd/: Contains entrypoints for running Authify in different modes (HTTP server, gRPC server, CLI).
 
-    - lib/: Library helpers and shared utilities used by multiple components.
+  - lib/: Library helpers and shared utilities used by multiple components.
 
-    - proto/: gRPC service definitions and generated code.
+  - proto/: gRPC service definitions and generated code.
 
-    - config-examples/: Reference configuration files.
+  - config-examples/: Reference configuration files.
 
-    - Dockerfile: Defines the container build used to run Authify in production.
+  - Dockerfile: Defines the container build used to run Authify in production.
 
 ## Future Direction
 
