@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -14,14 +16,14 @@ import (
 type AuthifyDB struct {
 	conn     *pgx.Conn
 	ctx      context.Context
-	tableCfg TableConfig
+	storeCfg StoreConfig
 }
 
 // This function takes in a connection string and a table name.
 // It initializes a connection with the database, and sets its context as context.Background()
 // After that, it attempts to create table if it does not exist with the passed tablename and config in the store.yml file.
 // Documentation for pgx package: https://pkg.go.dev/github.com/jackc/pgx/v5
-func NewAuthifyDB(connString string, cfg TableConfig) (*AuthifyDB, error) {
+func NewAuthifyDB(connString string, cfg StoreConfig) (*AuthifyDB, error) {
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, connString)
 	if err != nil {
@@ -31,7 +33,7 @@ func NewAuthifyDB(connString string, cfg TableConfig) (*AuthifyDB, error) {
 	db := &AuthifyDB{
 		conn:     conn,
 		ctx:      ctx,
-		tableCfg: cfg,
+		storeCfg: cfg,
 	}
 
 	if cfg.AutoCreate {
@@ -44,31 +46,45 @@ func NewAuthifyDB(connString string, cfg TableConfig) (*AuthifyDB, error) {
 	return db, nil
 }
 
+func (db *AuthifyDB) StoreConfig() StoreConfig {
+	return db.storeCfg
+}
+
 // This function takes in username and password
 // It creates the username with hashed password and provided information, as per config in database
 // Noteworthy that the cost passed to GenerateFromPassword function is the default cost (10)
 // Documentation for bcrypt: https://pkg.go.dev/golang.org/x/crypto/bcrypt
-func (db *AuthifyDB) CreateUser(data map[string]string) error {
-	cols := []string{}
-	args := []any{}
-	placeholders := []string{}
+func (db *AuthifyDB) CreateUser(data map[string]any) error {
+	query, args, err := db.buildCreateUserQuery(data)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.conn.Exec(db.ctx, query, args...)
+	return err
+}
+
+func (db *AuthifyDB) buildCreateUserQuery(data map[string]any) (string, []any, error) {
+	cols := make([]string, 0, len(db.storeCfg.Columns))
+	args := make([]any, 0, len(db.storeCfg.Columns))
+	placeholders := make([]string, 0, len(db.storeCfg.Columns))
 
 	i := 1
-	for name, cfg := range db.tableCfg.Columns {
+	for name, cfg := range db.storeCfg.Columns {
 		val, ok := data[name]
 
 		if cfg.Required && !ok && cfg.Default == "" {
-			return fmt.Errorf("missing required field: %s", name)
+			return "", nil, fmt.Errorf("missing required field: %s", name)
 		}
 
 		if !ok {
 			continue
 		}
 
-		if name == "password" {
-			hash, err := bcrypt.GenerateFromPassword([]byte(val), bcrypt.DefaultCost)
+		if cfg.IsPassword {
+			hash, err := bcrypt.GenerateFromPassword([]byte(val.(string)), bcrypt.DefaultCost)
 			if err != nil {
-				return err
+				return "", nil, err
 			}
 			val = string(hash)
 		}
@@ -81,92 +97,80 @@ func (db *AuthifyDB) CreateUser(data map[string]string) error {
 
 	query := fmt.Sprintf(
 		`INSERT INTO "%s" (%s) VALUES (%s)`,
-		db.tableCfg.Name,
+		db.storeCfg.Name,
 		strings.Join(cols, ", "),
 		strings.Join(placeholders, ", "),
 	)
 
-	_, err := db.conn.Exec(db.ctx, query, args...)
-	return err
+	return query, args, nil
 }
 
-// This function takes in the username and password and returns info of user after validation
+// This function takes in the user identifier and password and returns info of user after password validation
 // uses bcrypt's CompareHashAndPassword function for password validation
-func (db *AuthifyDB) GetUserInfo(username, password string) (map[string]string, error) {
-	var selectCols []string
-
-	for name, _ := range db.tableCfg.Columns {
-		// if cfg.Hidden {
-		// 	continue
-		// }
-		selectCols = append(selectCols, fmt.Sprintf(`"%s"`, name))
-	}
-
-	query := fmt.Sprintf(
-		`SELECT %s FROM "%s" WHERE username = $1`,
-		strings.Join(selectCols, ", "),
-		db.tableCfg.Name,
-	)
-
-	row := db.conn.QueryRow(db.ctx, query, username)
-
-	values := make([]any, len(selectCols))
-	valuePtrs := make([]any, len(selectCols))
-	for i := range values {
-		valuePtrs[i] = &values[i]
-	}
-
-	if err := row.Scan(valuePtrs...); err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, ErrUserNotFound
-		}
+func (db *AuthifyDB) GetUserInfo(userIdentifier, password string) (map[string]any, error) {
+	userData, err := db.fetchUserData(userIdentifier)
+	if err != nil {
 		return nil, err
 	}
 
-	// Validate password
-	pwIdx := -1
-	for i, col := range selectCols {
-		if col == `"password"` {
-			pwIdx = i
-			break
+	passwordColumn := db.storeCfg.getPasswordColumnName()
+	err = db.validatePassword(userData[passwordColumn].(string), password)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]any, len(userData))
+	for name, val := range userData {
+		if cfg, ok := db.storeCfg.Columns[name]; ok && !cfg.Hidden {
+			result[name] = val
 		}
-	}
-
-	if pwIdx == -1 {
-		return nil, fmt.Errorf("password column not configured")
-	}
-
-	if err := bcrypt.CompareHashAndPassword(
-		[]byte(values[pwIdx].(string)),
-		[]byte(password),
-	); err != nil {
-		return nil, ErrInvalidPassword
-	}
-
-	// Build result map
-	result := map[string]string{}
-	i := 0
-	for name, _ := range db.tableCfg.Columns {
-		// if cfg.Hidden {
-		// 	continue
-		// }
-		result[name] = fmt.Sprintf("%v", values[i])
-		i++
 	}
 
 	return result, nil
 }
 
-func (db *AuthifyDB) TableConfig() TableConfig {
-	return db.tableCfg
+func (db *AuthifyDB) validatePassword(userPassword, password string) error {
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(userPassword),
+		[]byte(password),
+	); err != nil {
+		return ErrInvalidPassword
+	}
+	return nil
+}
+
+func (db *AuthifyDB) fetchUserData(userIdentifier string) (map[string]any, error) {
+	selectCols := slices.Collect(maps.Keys(db.storeCfg.Columns))
+	identifierColumn := db.storeCfg.getIdentifierColumnName()
+	query := fmt.Sprintf(
+		`SELECT %s FROM "%s" WHERE %s=$1`,
+		`"`+strings.Join(selectCols, `","`)+`"`,
+		db.storeCfg.Name,
+		identifierColumn,
+	)
+	row, err := db.conn.Query(db.ctx, query, userIdentifier)
+	if err != nil {
+		return nil, err
+	}
+	data, err := pgx.CollectOneRow(
+		row,
+		pgx.RowToMap,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return data, nil
 }
 
 func (db *AuthifyDB) createTableIfNotExists() error {
-	if !db.tableCfg.AutoCreate {
+	if !db.storeCfg.AutoCreate {
 		return nil
 	}
 
-	cols, primaryKeys, err := db.constructColumnRowFromConfig(db.tableCfg.Columns)
+	cols, primaryKeys, err := db.constructColumnRowFromConfig(db.storeCfg.Columns)
 	if err != nil {
 		return err
 	}
@@ -178,7 +182,7 @@ func (db *AuthifyDB) createTableIfNotExists() error {
 
 	query := fmt.Sprintf(
 		`CREATE TABLE IF NOT EXISTS "%s" (%s);`,
-		db.tableCfg.Name,
+		db.storeCfg.Name,
 		strings.Join(cols, ", "),
 	)
 
@@ -187,7 +191,7 @@ func (db *AuthifyDB) createTableIfNotExists() error {
 }
 
 func (db *AuthifyDB) constructColumnRowFromConfig(columns map[string]ColumnConfig) (cols []string, primaryKeys []string, err error) {
-	for name, cfg := range db.tableCfg.Columns {
+	for name, cfg := range db.storeCfg.Columns {
 		sqlType, ok := allowedTypes[cfg.Type]
 		if !ok {
 			err = errors.New(fmt.Sprintf("unsupported column type: %s", cfg.Type))

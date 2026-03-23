@@ -10,28 +10,28 @@ import (
 type InMemoryUserStore struct {
 	mu       sync.RWMutex
 	users    map[string]map[string]string
-	tableCfg TableConfig
+	storeCfg StoreConfig
 }
 
 // NewInMemoryUserStore initializes a new in-memory store using table config
-func NewInMemoryUserStore(cfg TableConfig) *InMemoryUserStore {
+func NewInMemoryUserStore(cfg StoreConfig) *InMemoryUserStore {
 	return &InMemoryUserStore{
 		users:    make(map[string]map[string]string),
-		tableCfg: cfg,
+		storeCfg: cfg,
 	}
 }
 
-// TableConfig exposes the schema config
-func (m *InMemoryUserStore) TableConfig() TableConfig {
-	return m.tableCfg
+// StoreConfig exposes the schema config
+func (m *InMemoryUserStore) StoreConfig() StoreConfig {
+	return m.storeCfg
 }
 
 // CreateUser creates a user using dynamic fields defined in config
-func (m *InMemoryUserStore) CreateUser(data map[string]string) error {
+func (m *InMemoryUserStore) CreateUser(data map[string]any) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	username, ok := data["username"]
+	username, ok := data["username"].(string)
 	if !ok {
 		return ErrUserNotFound
 	}
@@ -42,8 +42,8 @@ func (m *InMemoryUserStore) CreateUser(data map[string]string) error {
 
 	user := make(map[string]string)
 
-	for name, cfg := range m.tableCfg.Columns {
-		val, ok := data[name]
+	for name, cfg := range m.storeCfg.Columns {
+		val, ok := data[name].(string)
 
 		if cfg.Required && !ok && cfg.Default == "" {
 			return ErrInvalidPassword
@@ -73,7 +73,7 @@ func (m *InMemoryUserStore) CreateUser(data map[string]string) error {
 }
 
 // GetUserInfo authenticates and returns non-hidden user fields
-func (m *InMemoryUserStore) GetUserInfo(username, password string) (map[string]string, error) {
+func (m *InMemoryUserStore) GetUserInfo(username, password string) (map[string]any, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -91,8 +91,8 @@ func (m *InMemoryUserStore) GetUserInfo(username, password string) (map[string]s
 		return nil, ErrInvalidPassword
 	}
 
-	result := make(map[string]string)
-	for name, cfg := range m.tableCfg.Columns {
+	result := make(map[string]any)
+	for name, cfg := range m.storeCfg.Columns {
 		if cfg.Hidden {
 			continue
 		}

@@ -14,10 +14,11 @@ import (
 	"log"
 	"net"
 
-	authify "github.com/HassanAli101/authify"
+	"github.com/HassanAli101/authify"
 	authifygrpc "github.com/HassanAli101/authify/internal/grpc"
 	"github.com/HassanAli101/authify/lib"
-	stores "github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/token"
 	"google.golang.org/grpc"
 )
 
@@ -38,19 +39,24 @@ func main() {
 	// Load environment-based configuration.
 	cfg, _ := lib.ReadEnvVars()
 
-	storeCfg, err := lib.LoadStoreConfig("configs/store.yml")
+	storeCfg, err := lib.LoadStoreConfig(cfg.StoreConfigFilePath)
 	if err != nil {
 		log.Fatalf("Error loading store config: %v", err)
 	}
 
+	tokenCfg, err := lib.LoadTokenConfig(cfg.TokenConfigFilePath)
+	if err != nil {
+		log.Fatalf("Error loading token config: %v", err)
+	}
+
 	// Initialize the user store backed by the configured database.
-	store, _ := stores.NewAuthifyDB(cfg.DatabaseURL, storeCfg.Table)
+	store, _ := stores.NewAuthifyDB(cfg.DatabaseURL, *storeCfg)
 
 	// Build the JWT manager using the configured secrets and token lifetime.
-	jwtManager, _ := authify.NewJWTManager().
+	jwtManager, _ := token.NewJWTManager().
+		WithConfig(tokenCfg).
 		WithAccessSecret(cfg.JWTAccessSecret).
 		WithRefreshSecret(cfg.JWTRefreshSecret).
-		WithTokenDuration(cfg.TokenExpiration).
 		WithStore(store).
 		Build()
 

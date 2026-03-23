@@ -12,6 +12,7 @@ import (
 	"github.com/HassanAli101/authify"
 	"github.com/HassanAli101/authify/lib"
 	"github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/token"
 )
 
 var (
@@ -27,20 +28,25 @@ func init() {
 		log.Fatalf("Error loading config: %v", err)
 	}
 
-	storeCfg, err := lib.LoadStoreConfig("configs/store.yml")
+	storeCfg, err := lib.LoadStoreConfig(cfg.StoreConfigFilePath)
 	if err != nil {
 		log.Fatalf("Error loading store config: %v", err)
 	}
 
-	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, storeCfg.Table)
+	tokenCfg, err := lib.LoadTokenConfig(cfg.TokenConfigFilePath)
+	if err != nil {
+		log.Fatalf("failed to load token config: %v", err)
+	}
+
+	dbStore, err := stores.NewAuthifyDB(cfg.DatabaseURL, *storeCfg)
 	if err != nil {
 		log.Fatalf("Error connecting to db: %v", err)
 	}
 
-	jwtManager, err := authify.NewJWTManager().
+	jwtManager, err := token.NewJWTManager().
+		WithConfig(tokenCfg).
 		WithAccessSecret(cfg.JWTAccessSecret).
 		WithRefreshSecret(cfg.JWTRefreshSecret).
-		WithTokenDuration(cfg.TokenExpiration).
 		WithStore(dbStore).
 		Build()
 	if err != nil {
@@ -107,7 +113,7 @@ func handleCreateUser() {
 		log.Fatal("username and password are required")
 	}
 
-	err := a.Store.CreateUser(map[string]string{
+	err := a.Store.CreateUser(map[string]any{
 		"username": *username,
 		"password": *password,
 	})
@@ -130,12 +136,15 @@ func handleGenerateToken() {
 		log.Fatal("username and password are required")
 	}
 
-	accessToken, err := a.Tokens.GenerateToken(*username, *password)
+	accessToken, err := a.Tokens.GenerateAccessToken(*username, *password)
 	if err != nil {
 		log.Fatalf("Error generating access token: %v", err)
 	}
 
-	refreshToken, err := a.Tokens.GenerateRefreshToken(*username, *ip)
+	reqData := map[string]any{
+		"ip": *ip,
+	}
+	refreshToken, err := a.Tokens.GenerateRefreshToken(*username, reqData)
 	if err != nil {
 		log.Fatalf("Error generating refresh token: %v", err)
 	}
@@ -156,12 +165,12 @@ func handleVerifyToken() {
 		log.Fatal("token is required")
 	}
 
-	username, role, err := a.Tokens.VerifyToken(*token, false)
+	claims, err := a.Tokens.VerifyAccessToken(*token)
 	if err != nil {
 		log.Fatalf("Token verification failed: %v", err)
 	}
 
-	fmt.Printf("Token valid\nUser: %s\nRole: %s\n", username, role)
+	fmt.Printf("Token valid\nClaims: %s\n", claims)
 }
 
 func handleRefreshToken() {
@@ -175,10 +184,11 @@ func handleRefreshToken() {
 		log.Fatal("both access and refresh tokens are required")
 	}
 
-	newToken, username, err := a.Tokens.RefreshToken(*accessToken, *refreshToken)
+	reqData := map[string]any{}
+	newToken, claims, err := a.Tokens.RefreshToken(*accessToken, *refreshToken, reqData)
 	if err != nil {
 		log.Fatalf("Token refresh failed: %v", err)
 	}
 
-	fmt.Printf("Token refreshed for user: %s\nNew Access Token:\n%s\n", username, newToken)
+	fmt.Printf("Token refreshed for user with claims: %s\nNew Access Token:\n%s\n", claims, newToken)
 }

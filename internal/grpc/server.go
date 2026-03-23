@@ -2,6 +2,7 @@ package authifygrpc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/HassanAli101/authify"
 )
@@ -16,23 +17,31 @@ func NewAuthifyGRPCServer(a *authify.Authify) *AuthifyGRPCServer {
 }
 
 func (s *AuthifyGRPCServer) CreateUser(ctx context.Context, req *CreateUserRequest) (*Empty, error) {
-	err := s.auth.Store.CreateUser(map[string]string{
-	"username": req.Username,
-	"password": req.Password,
-})
-	if err != nil {
+
+	userData := map[string]any{
+		"username": req.Username,
+		"password": req.Password,
+	}
+
+	if err := s.auth.Store.CreateUser(userData); err != nil {
 		return nil, err
 	}
+
 	return &Empty{}, nil
 }
 
 func (s *AuthifyGRPCServer) GenerateToken(ctx context.Context, req *GenerateTokenRequest) (*TokenResponse, error) {
-	access, err := s.auth.Tokens.GenerateToken(req.Username, req.Password)
+
+	access, err := s.auth.Tokens.GenerateAccessToken(req.Username, req.Password)
 	if err != nil {
 		return nil, err
 	}
 
-	refresh, err := s.auth.Tokens.GenerateRefreshToken(req.Username, req.Device)
+	reqData := map[string]any{
+		"ip": req.Device,
+	}
+
+	refresh, err := s.auth.Tokens.GenerateRefreshToken(req.Username, reqData)
 	if err != nil {
 		return nil, err
 	}
@@ -44,19 +53,22 @@ func (s *AuthifyGRPCServer) GenerateToken(ctx context.Context, req *GenerateToke
 }
 
 func (s *AuthifyGRPCServer) VerifyToken(ctx context.Context, req *VerifyTokenRequest) (*VerifyTokenResponse, error) {
-	username, role, err := s.auth.Tokens.VerifyToken(req.AccessToken, false)
+
+	claims, err := s.auth.Tokens.VerifyAccessToken(req.AccessToken)
 	if err != nil {
 		return nil, err
 	}
 
 	return &VerifyTokenResponse{
-		Username: username,
-		Role:     role,
+		Claims: toStringMap(claims),
 	}, nil
 }
 
 func (s *AuthifyGRPCServer) RefreshToken(ctx context.Context, req *RefreshTokenRequest) (*TokenResponse, error) {
-	access, _, err := s.auth.Tokens.RefreshToken(req.AccessToken, req.RefreshToken)
+
+	reqData := map[string]any{}
+
+	access, _, err := s.auth.Tokens.RefreshToken(req.AccessToken, req.RefreshToken, reqData)
 	if err != nil {
 		return nil, err
 	}
@@ -64,4 +76,14 @@ func (s *AuthifyGRPCServer) RefreshToken(ctx context.Context, req *RefreshTokenR
 	return &TokenResponse{
 		AccessToken: access,
 	}, nil
+}
+
+func toStringMap(in map[string]any) map[string]string {
+	out := make(map[string]string)
+
+	for k, v := range in {
+		out[k] = fmt.Sprintf("%v", v)
+	}
+
+	return out
 }

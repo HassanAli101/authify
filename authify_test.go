@@ -5,185 +5,260 @@ import (
 	"time"
 
 	"github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/token"
 )
 
-var testTableConfig = stores.TableConfig{
+var testStoreConfig = stores.StoreConfig{
 	Name:       "users",
 	AutoCreate: false,
 	Columns: map[string]stores.ColumnConfig{
 		"username": {
-			Type:       "string",
+			Type:       "text",
 			Required:   true,
 			PrimaryKey: true,
 		},
 		"password": {
-			Type:     "string",
-			Required: true,
-			Hidden:   true,
+			Type:       "text",
+			Required:   true,
+			Hidden:     true,
+			IsPassword: true,
 		},
 		"role": {
-			Type:    "string",
-			Default: "user",
+			Type:     "text",
+			Default:  "user",
+			JWTClaim: "role",
+		},
+		"email": {
+			Type:     "text",
+			JWTClaim: "email",
+		},
+	},
+}
+
+var testTokenConfig = &token.TokenConfig{
+	AccessToken: token.AccessTokenConfig{
+		Duration:      time.Minute,
+		SigningMethod: "HS256",
+		Claims: map[string]token.ClaimConfig{
+			"username": {
+				Source:       "db", // comes from user store
+				Column:       "username",
+				IsIdentifier: true,
+			},
+			"role": {
+				Source: "db",
+				Column: "role",
+			},
+			"email": {
+				Source: "db",
+				Column: "email",
+			},
+		},
+	},
+	RefreshToken: token.RefreshTokenConfig{
+		Duration:         time.Hour * 24 * 3,
+		AbsoluteDuration: time.Hour * 24 * 15,
+		Claims: map[string]token.ClaimConfig{
+			"username": {
+				Source:       "db",
+				Column:       "username",
+				IsIdentifier: true,
+			},
+			"ip": {
+				Source: "request",
+				Header: "ip",
+			},
+			"user_agent": {
+				Source: "request",
+				Header: "user_agent",
+			},
 		},
 	},
 }
 
 func setupAuthify() *Authify {
-	memStore := stores.NewInMemoryUserStore(testTableConfig)
+	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
-	jwtManager, _ := NewJWTManager().
+	jwtManager, _ := token.NewJWTManager().
 		WithAccessSecret("supersecret").
 		WithRefreshSecret("supersecret2").
-		WithTokenDuration(time.Minute * 1).
 		WithStore(memStore).
+		WithConfig(testTokenConfig).
 		Build()
 
 	a := NewAuthify(memStore, jwtManager)
 
-	_ = a.Store.CreateUser(map[string]string{
+	_ = a.Store.CreateUser(map[string]any{
 		"username": "alice",
 		"password": "password123",
+		"role":     "user",
+		"email":    "alice@example.com",
 	})
 
 	return a
 }
 
+// ----------------- User Creation Tests -----------------
 func TestCreateUser(t *testing.T) {
 	a := setupAuthify()
 
-	err := a.Store.CreateUser(map[string]string{
+	err := a.Store.CreateUser(map[string]any{
 		"username": "bob",
 		"password": "securepass",
+		"role":     "admin",
+		"email":    "bob@example.com",
 	})
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
 }
 
-func TestGenerateToken(t *testing.T) {
+// ----------------- Token Generation Tests -----------------
+func TestGenerateAccessToken(t *testing.T) {
 	a := setupAuthify()
 
-	tokenStr, err := a.Tokens.GenerateToken("alice", "password123")
+	tokenStr, err := a.Tokens.GenerateAccessToken("alice", "password123")
 	if err != nil {
-		t.Fatalf("failed to generate token: %v", err)
+		t.Fatalf("failed to generate access token: %v", err)
 	}
 	if tokenStr == "" {
 		t.Fatalf("expected non-empty token string")
 	}
 }
 
-func TestVerifyToken(t *testing.T) {
+func TestGenerateRefreshToken(t *testing.T) {
 	a := setupAuthify()
 
-	tokenStr, _ := a.Tokens.GenerateToken("alice", "password123")
-	username, role, err := a.Tokens.VerifyToken(tokenStr, false)
+	reqData := map[string]any{"ip": "127.0.0.1"}
+	refresh, err := a.Tokens.GenerateRefreshToken("alice", reqData)
 	if err != nil {
-		t.Fatalf("failed to verify token: %v", err)
+		t.Fatalf("failed to generate refresh token: %v", err)
 	}
-	if username != "alice" {
-		t.Errorf("expected username 'alice', got '%s'", username)
+	if refresh == "" {
+		t.Fatalf("expected non-empty refresh token")
 	}
-	if role != "user" {
-		t.Errorf("expected role 'user', got '%s'", role)
+}
+
+// ----------------- Token Verification Tests -----------------
+func TestVerifyAccessToken(t *testing.T) {
+	a := setupAuthify()
+
+	tokenStr, _ := a.Tokens.GenerateAccessToken("alice", "password123")
+	claims, err := a.Tokens.VerifyAccessToken(tokenStr)
+	if err != nil {
+		t.Fatalf("failed to verify access token: %v", err)
+	}
+
+	expected := map[string]string{
+		"username": "alice",
+		"role":     "user",
+		"email":    "alice@example.com",
+	}
+
+	for k, v := range expected {
+		if claims[k] != v {
+			t.Errorf("expected claim %s='%s', got '%v'", k, v, claims[k])
+		}
 	}
 }
 
 func TestTamperedToken(t *testing.T) {
 	a := setupAuthify()
 
-	tokenStr, _ := a.Tokens.GenerateToken("alice", "password123")
-	tampered := tokenStr + "extra"
+	tokenStr, _ := a.Tokens.GenerateAccessToken("alice", "password123")
+	tampered := tokenStr + "tamper"
 
-	_, _, err := a.Tokens.VerifyToken(tampered, false)
+	_, err := a.Tokens.VerifyAccessToken(tampered)
 	if err == nil {
 		t.Errorf("expected error for tampered token, got nil")
 	}
 }
 
-func TestRefreshToken(t *testing.T) {
+// ----------------- Token Refresh Tests -----------------
+func TestRefreshAccessToken(t *testing.T) {
 	a := setupAuthify()
 
-	tokenStr, _ := a.Tokens.GenerateToken("alice", "password123")
-	refreshToken, _ := a.Tokens.GenerateRefreshToken("alice", "12345")
-
-	newToken, _, err := a.Tokens.RefreshToken(tokenStr, refreshToken)
+	access, _ := a.Tokens.GenerateAccessToken("alice", "password123")
+	refreshData := map[string]any{
+		"ip":         "127.0.0.1",
+		"user_agent": "unit-test",
+	}
+	refreshToken, _ := a.Tokens.GenerateRefreshToken("alice", refreshData)
+	time.Sleep(time.Second)
+	newAccess, _, err := a.Tokens.RefreshToken(access, refreshToken, refreshData)
 	if err != nil {
 		t.Fatalf("failed to refresh token: %v", err)
 	}
-	if newToken == tokenStr {
+	if newAccess == access {
 		t.Errorf("expected refreshed token to differ from old token")
 	}
 }
 
-func TestExpiredToken(t *testing.T) {
-	memStore := stores.NewInMemoryUserStore(testTableConfig)
+// ----------------- Expired Token Tests -----------------
+func TestExpiredAccessToken(t *testing.T) {
+	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
-	shortLivedJWT, _ := NewJWTManager().
+	shortJWT, _ := token.NewJWTManager().
 		WithAccessSecret("supersecret").
 		WithRefreshSecret("supersecret2").
-		WithTokenDuration(time.Millisecond * 10).
 		WithStore(memStore).
+		WithConfig(testTokenConfig).
 		Build()
 
-	a := NewAuthify(memStore, shortLivedJWT)
+	a := NewAuthify(memStore, shortJWT)
 
-	_ = a.Store.CreateUser(map[string]string{
+	_ = a.Store.CreateUser(map[string]any{
 		"username": "alice",
 		"password": "password123",
 	})
 
-	tokenStr, err := a.Tokens.GenerateToken("alice", "password123")
-	if err != nil {
-		t.Fatalf("failed to generate short-lived token: %v", err)
-	}
+	tokenStr, _ := a.Tokens.GenerateAccessToken("alice", "password123")
 
 	time.Sleep(time.Millisecond * 20)
 
-	_, _, err = a.Tokens.VerifyToken(tokenStr, false)
+	_, err := a.Tokens.VerifyAccessToken(tokenStr)
 	if err == nil {
 		t.Errorf("expected error verifying expired token, got nil")
 	}
 }
 
 func TestAutoRefreshExpiredToken(t *testing.T) {
-	memStore := stores.NewInMemoryUserStore(testTableConfig)
+	memStore := stores.NewInMemoryUserStore(testStoreConfig)
 
-	shortLivedJWT, _ := NewJWTManager().
+	shortJWT, _ := token.NewJWTManager().
 		WithAccessSecret("supersecret").
 		WithRefreshSecret("supersecret2").
-		WithTokenDuration(time.Second * 1).
 		WithStore(memStore).
+		WithConfig(testTokenConfig).
 		Build()
 
-	a := NewAuthify(memStore, shortLivedJWT)
+	a := NewAuthify(memStore, shortJWT)
 
-	_ = a.Store.CreateUser(map[string]string{
+	_ = a.Store.CreateUser(map[string]any{
 		"username": "alice",
 		"password": "password123",
+		"email":    "alice@example.com",
 	})
 
-	tokenStr, err := a.Tokens.GenerateToken("alice", "password123")
-	if err != nil {
-		t.Fatalf("failed to generate short-lived token: %v", err)
+	access, _ := a.Tokens.GenerateAccessToken("alice", "password123")
+	refreshData := map[string]any{
+		"ip":         "127.0.0.1",
+		"user_agent": "unit-test",
 	}
-
-	refreshToken, _ := a.Tokens.GenerateRefreshToken("alice", "12345")
+	refreshToken, _ := a.Tokens.GenerateRefreshToken("alice", refreshData)
 
 	time.Sleep(time.Second * 1)
 
-	tokenStr, _, err = a.Tokens.RefreshToken(tokenStr, refreshToken)
+	newAccess, _, err := a.Tokens.RefreshToken(access, refreshToken, refreshData)
 	if err != nil {
 		t.Fatalf("Failed to refresh expired token: %v", err)
 	}
 
-	username, role, err := a.Tokens.VerifyToken(tokenStr, false)
+	claims, err := a.Tokens.VerifyAccessToken(newAccess)
 	if err != nil {
-		t.Fatalf("failed to verify token: %v", err)
+		t.Fatalf("failed to verify refreshed token: %v", err)
 	}
-	if username != "alice" {
-		t.Errorf("expected username 'alice', got '%s'", username)
-	}
-	if role != "user" {
-		t.Errorf("expected role 'user', got '%s'", role)
+	if claims["username"] != "alice" || claims["role"] != "user" || claims["email"] != "alice@example.com" {
+		t.Errorf("refreshed token missing expected claims: %v", claims)
 	}
 }

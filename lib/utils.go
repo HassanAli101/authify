@@ -4,30 +4,28 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/HassanAli101/authify"
 	"github.com/HassanAli101/authify/stores"
+	"github.com/HassanAli101/authify/token"
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
-	DatabaseURL      string
-	JWTAccessSecret  string
-	JWTRefreshSecret string
-	TokenExpiration  time.Duration
-	ServerPort       string
-	TableName        string
+	DatabaseURL         string
+	JWTAccessSecret     string
+	JWTRefreshSecret    string
+	ServerPort          string
+	StoreConfigFilePath string
+	TokenConfigFilePath string
 }
 
 // ReadEnvVars loads configuration values from a .env file or system environment variables.
 func ReadEnvVars() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		if os.Getenv("DATABASE_URL") == "" {
-			return nil, authify.ErrEnvNotFound
+			return nil, ErrEnvNotFound
 		}
 	}
 
@@ -35,48 +33,42 @@ func ReadEnvVars() (*Config, error) {
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseURL == "" {
-		return nil, authify.ErrMissingDatabaseURL
+		return nil, ErrMissingDatabaseURL
 	}
 
 	cfg.JWTAccessSecret = os.Getenv("JWT_SECRET")
 	if cfg.JWTAccessSecret == "" {
-		return nil, authify.ErrMissingJWTSecret
+		return nil, ErrMissingJWTSecret
 	}
 
 	cfg.JWTRefreshSecret = os.Getenv("JWT_REFRESH_SECRET")
 	if cfg.JWTRefreshSecret == "" {
-		return nil, authify.ErrMissingJWTRefreshSecret
+		return nil, ErrMissingJWTRefreshSecret
 	}
-
-	expStr := os.Getenv("TOKEN_EXPIRATION_TIME_MINUTES")
-	if expStr == "" {
-		return nil, authify.ErrMissingTokenExpiration
-	}
-
-	expMinutes, err := strconv.Atoi(expStr)
-	if err != nil {
-		return nil, authify.ErrInvalidTokenExpiration
-	}
-	cfg.TokenExpiration = time.Duration(expMinutes) * time.Minute
 
 	cfg.ServerPort = os.Getenv("SERVER_PORT")
 	if cfg.ServerPort == "" {
-		return nil, authify.ErrMissingServerPort
+		return nil, ErrMissingServerPort
 	}
 
-	cfg.TableName = os.Getenv("TABLE_NAME")
-	if cfg.TableName == "" {
-		return nil, authify.ErrMissingTableName
+	cfg.StoreConfigFilePath = os.Getenv("STORE_CONFIG_FILE_PATH")
+	if cfg.StoreConfigFilePath == "" {
+		return nil, ErrMissingStoreConfig
+	}
+
+	cfg.TokenConfigFilePath = os.Getenv("TOKEN_CONFIG_FILE_PATH")
+	if cfg.TokenConfigFilePath == "" {
+		return nil, ErrMissingTokenConfig
 	}
 
 	return cfg, nil
 }
 
 // ParseUsernamePassword extracts username and password from HTTP headers.
-func ParseUserHeaders(r *http.Request, tableCfg stores.TableConfig) (map[string]string, error) {
-	userData := make(map[string]string)
+func ParseUserHeaders(r *http.Request, storeCfg stores.StoreConfig) (map[string]any, error) {
+	userData := make(map[string]any)
 
-	for name, cfg := range tableCfg.Columns {
+	for name, cfg := range storeCfg.Columns {
 		headerName := fmt.Sprintf("authify-%s", strings.ToLower(name))
 		val := r.Header.Get(headerName)
 
@@ -93,18 +85,24 @@ func ParseUserHeaders(r *http.Request, tableCfg stores.TableConfig) (map[string]
 }
 
 // ParseToken extracts access and refresh tokens from HTTP headers.
-func ParseToken(r *http.Request) (string, string, error) {
+func ParseAccessToken(r *http.Request) (string, error) {
 	accessToken := r.Header.Get("authify-access")
-	refreshToken := r.Header.Get("authify-refresh")
 
 	if accessToken == "" {
-		return "", "", authify.ErrMissingAccessTokenHeader
-	}
-	if refreshToken == "" {
-		return "", "", authify.ErrMissingRefreshTokenHeader
+		return "", ErrMissingAccessTokenHeader
 	}
 
-	return accessToken, refreshToken, nil
+	return accessToken, nil
+}
+
+func ParseRefreshToken(r *http.Request) (string, error) {
+	refreshToken := r.Header.Get("authify-refresh")
+
+	if refreshToken == "" {
+		return "", ErrMissingRefreshTokenHeader
+	}
+
+	return refreshToken, nil
 }
 
 func LoadStoreConfig(path string) (*stores.StoreConfig, error) {
@@ -118,16 +116,19 @@ func LoadStoreConfig(path string) (*stores.StoreConfig, error) {
 		return nil, err
 	}
 
-	if cfg.Version != 1 {
-		return nil, fmt.Errorf("unsupported store config version: %d", cfg.Version)
-	}
+	return &cfg, nil
+}
 
-	out, err := yaml.Marshal(&cfg)
+func LoadTokenConfig(path string) (*token.TokenConfig, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to marshal config for printing: %w", err)
+		return nil, err
 	}
 
-	fmt.Printf("Loaded Store Config:\n%s\n", string(out))
+	var cfg token.TokenConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
 
 	return &cfg, nil
 }
